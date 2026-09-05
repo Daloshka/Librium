@@ -1,0 +1,23 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Секреты: ключ CA никогда не должен попасть в репозиторий
+*.pem
+*.key
+*.p12
+*.pfx
+ca.crt
+
+# Локальные данные
+*.db
+*.sqlite
+*.sqlite3
+/logs/
+
+# IDE и ОС
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
