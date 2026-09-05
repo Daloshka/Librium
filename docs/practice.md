@@ -13,16 +13,33 @@
 
     C:\Program Files\Git\mingw64\bin\openssl.exe    OpenSSL 3.5.4
 
-Три способа запускать:
+**Как сделано на этой машине.** В PATH нельзя добавить один файл, только
+папку, а добавлять `C:\Program Files\Git\mingw64\bin` целиком плохо: там
+лежат свои `curl.exe`, `git.exe` и десятки других утилит, они начнут
+перекрывать системные. Скопировать один `openssl.exe` тоже нельзя, он тянет
+`libcrypto` и `libssl` из своей папки.
 
-    # разово из PowerShell, & нужен из-за пробелов в пути
-    & "C:\Program Files\Git\mingw64\bin\openssl.exe" version
+Решение: своя папка для ярлыков, в ней один cmd-обёртка, папка в PATH.
 
-    # в Git Bash уже в PATH
-    openssl version
+    C:\Users\Anonym\bin\openssl.cmd:
 
-    # добавить навсегда (осторожно: перекроет системные curl и git)
-    [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Program Files\Git\mingw64\bin', 'User')
+        @echo off
+        "C:\Program Files\Git\mingw64\bin\openssl.exe" %*
+
+    # папка добавлена в пользовательский PATH один раз:
+    [Environment]::SetEnvironmentVariable('Path',
+        [Environment]::GetEnvironmentVariable('Path','User') + ';' + "$env:USERPROFILE\bin", 'User')
+
+Проверено, `openssl version` работает из любой оболочки и ничего не
+перекрывает. В эту же папку дальше можно класть обёртки для других
+утилит. В текущем окне PowerShell нужно один раз обновить переменную
+(`$env:Path += ";$env:USERPROFILE\bin"`), новые окна подхватят сами.
+
+Альтернатива только для PowerShell, если не хочется трогать PATH:
+
+    Set-Alias openssl "C:\Program Files\Git\mingw64\bin\openssl.exe"
+
+в файле профиля `$PROFILE`.
 
 `curl.exe` системный, лежит в System32. `ncat` и `nc` не установлены,
 вместо них ниже используется `TcpClient` из PowerShell.

@@ -31,6 +31,10 @@ Rust, первая цель Windows 10.
 - [Глоссарий протоколов](docs/basics/protocols.md) — определения Ethernet,
   Wi-Fi, IPv4, IPv6, ICMP, TCP, UDP, QUIC, DNS, TLS, HTTP, WebSocket, SMTP
   по слоям и что каждый значит для Librium.
+- [Версии TLS](docs/basics/tls-versions.md) — от SSL 2.0 до TLS 1.3,
+  чем 1.3 быстрее и безопаснее, почему 1.2 ещё жив, что поддерживать в Librium.
+- [Сертификаты](docs/basics/certificates.md) — что значат CN, O, OU, C, ST, L,
+  почему CN больше не главный, SAN, расширения, чтение цепочки.
 
 ## Структура папок
 
@@ -45,6 +49,8 @@ Rust, первая цель Windows 10.
           windows-registry.md
           tcp-handshake.md
           protocols.md
+          tls-versions.md
+          certificates.md
       src/                   код появится здесь (cargo)
 
 Новый документ: положить в `docs/` или `docs/basics/`, добавить строку
