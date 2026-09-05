@@ -1,6 +1,6 @@
 # Сертификаты: что значит CN и остальные буквы
 
-[← Назад к индексу](../../README.md) · Связано: [Версии TLS](tls-versions.md), [Глоссарий](protocols.md#tls-transport-layer-security), [Настройка прокси](../proxy-setup.md#6-установка-корневого-сертификата-librium)
+[← Назад к индексу](../../README.md) · Связано: [Центры сертификации](certificate-authorities.md), [Версии TLS](tls-versions.md), [Криптография TLS](tls-crypto.md), [Настройка прокси](../proxy-setup.md#6-установка-корневого-сертификата-librium)
 
 ---
 

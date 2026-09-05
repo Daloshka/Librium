@@ -1,6 +1,6 @@
 # Версии TLS: чем отличаются и что используется сегодня
 
-[← Назад к индексу](../../README.md) · Связано: [Глоссарий](protocols.md#tls-transport-layer-security), [Сертификаты](certificates.md), [Сеть](../network.md#43-tls-handshake-версия-13-сегодня-основная)
+[← Назад к индексу](../../README.md) · Связано: [Криптография TLS](tls-crypto.md), [Сертификаты](certificates.md), [Глоссарий](protocols.md#tls-transport-layer-security)
 
 ---
 
