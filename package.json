@@ -1,0 +1,45 @@
+{
+  "name": "librium-desktop",
+  "version": "0.5.2",
+  "description": "HTTP and HTTPS traffic inspector",
+  "author": "Librium",
+  "private": true,
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:core": "powershell -NoProfile -File scripts/build-core.ps1",
+    "dist": "npm run build:core && electron-builder --win portable",
+    "test:ui": "node scripts/ui-smoke.cjs",
+    "test:electron": "electron scripts/electron-smoke.cjs"
+  },
+  "devDependencies": {
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3",
+    "http-proxy-agent": "^9.1.0",
+    "jsdom": "^29.1.1",
+    "ws": "^8.21.3"
+  },
+  "build": {
+    "appId": "local.librium.desktop",
+    "productName": "Librium",
+    "directories": {
+      "output": "dist/v0.5.2"
+    },
+    "files": [
+      "desktop/**/*",
+      "ui/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "target/release/librium.exe",
+        "to": "core/librium.exe"
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": true,
+      "icon": "desktop/assets/icon.ico"
+    },
+    "asar": true
+  }
+}

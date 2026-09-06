@@ -1,0 +1,57 @@
+# Rust
+/target/
+/node_modules/
+/dist/
+/.publish/
+/artifacts/
+**/*.rs.bk
+/.local/
+
+# Секреты: ключ CA никогда не должен попасть в репозиторий
+*.pem
+*.key
+*.p12
+*.pfx
+ca.crt
+
+# Локальные данные
+*.db
+*.sqlite
+*.sqlite3
+*.db-*
+*.sqlite-*
+*.sqlite3-*
+*.db3
+*.har
+*.pcap
+*.pcapng
+*.saz
+*.crt
+*.cer
+*.der
+*.log
+*.dmp
+*.lnk
+*.exe
+*.zip
+.env
+.env.*
+!.env.example
+filter-sessions.json
+filter-sessions.json.*
+verification-cache.json
+history*.json
+*smoke-result*
+*clipboard*.png
+*screenshot*.png
+*screenshot*.jpg
+/private/
+/captures/
+/screenshots/
+/logs/
+
+# IDE и ОС
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
