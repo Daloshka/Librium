@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {'.gitignore', '.gitattributes', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE', 'Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'run.ps1'}
 DIRECTORIES = {'src', 'desktop', 'ui', 'scripts', 'docs', '.github'}
 TEXT_SUFFIXES = {'.rs', '.cjs', '.js', '.html', '.css', '.ps1', '.py', '.md', '.toml', '.lock', '.json', '.yml', '.yaml'}
-BINARY_FILES = {'desktop/assets/icon.png', 'desktop/assets/icon.ico'}
+BINARY_FILES = {'desktop/assets/icon.png', 'desktop/assets/icon.ico', 'docs/images/http-history.webp', 'docs/images/media-preview.webp'}
 RULES = {
     'private key': r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
     'access token': r'(?:ghp_|github_pat_|sk-proj-)[A-Za-z0-9_-]{16,}',
