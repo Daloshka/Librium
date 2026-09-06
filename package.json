@@ -3,6 +3,7 @@
   "version": "0.5.2",
   "description": "HTTP and HTTPS traffic inspector",
   "author": "Librium",
+  "license": "MIT",
   "private": true,
   "main": "desktop/main.cjs",
   "scripts": {

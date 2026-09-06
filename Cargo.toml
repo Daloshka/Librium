@@ -2,6 +2,7 @@
 name = "librium"
 version = "0.5.2"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 anyhow = "1"
