@@ -164,6 +164,22 @@ networksetup -setsecurewebproxystate Wi-Fi off
 
 Приложение не включает системный прокси и не устанавливает CA автоматически. После работы отключи прокси в клиенте или в системе. Приватный ключ `ca.key` никому не передавай.
 
+### Если включён VPN
+
+VPN-клиенты на базе Network Extension в macOS (Xray, sing-box, Amnezia, WireGuard и подобные) и многие туннели в Windows игнорируют системный прокси: пока туннель поднят, `scutil --proxy` пуст, и запросы идут мимо Librium, даже если прокси задан для Wi-Fi или для самого сервиса VPN. Librium при этом работает: его исходящие соединения уходят через туннель, как у любого приложения.
+
+Решение — задать прокси самому браузеру, а не системе. Кнопка **«Открыть Chrome через прокси»** в диалоге «Подключение HTTPS» запускает отдельный профиль Chrome, Chromium, Edge или Brave с флагом `--proxy-server`, который не зависит от системных настроек и VPN. Профиль хранится в каталоге данных Electron и не трогает основной браузер. То же вручную:
+
+```sh
+open -na "Google Chrome" --args --proxy-server=127.0.0.1:8080 --user-data-dir="$HOME/Library/Application Support/librium-desktop/chrome-profile"
+```
+
+```powershell
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --proxy-server=127.0.0.1:8080 --user-data-dir="$env:APPDATA\librium-desktop\chrome-profile"
+```
+
+Firefox настраивается в собственных параметрах сети: «Ручная настройка прокси», HTTP и HTTPS `127.0.0.1:8080`. Для HTTPS в любом случае нужен доверенный CA Librium.
+
 Подробные разборы: [настройка прокси в Windows](docs/proxy-setup.md) и [настройка прокси в macOS](docs/proxy-setup-macos.md).
 
 Для телефона нажми «Подключить телефон», выбери локальный сетевой интерфейс и следуй инструкции. LAN-доступ включается отдельно; по умолчанию ядро доступно только на loopback.

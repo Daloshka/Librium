@@ -108,6 +108,27 @@ ipcMain.handle('open-url', (event, value) => {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw Error('Разрешены только HTTP и HTTPS адреса');
   return shell.openExternal(url.href);
 });
+// A separate Chromium profile that talks to Librium directly: VPN tunnels and other clients ignore the system proxy, an explicit --proxy-server does not.
+function browserCandidates() {
+  if (process.platform === 'darwin') return ['Google Chrome', 'Chromium', 'Microsoft Edge', 'Brave Browser'].filter(name => fs.existsSync(`/Applications/${name}.app`)).map(name => ({command: 'open', prefix: ['-na', name, '--args']}));
+  if (process.platform === 'win32') {
+    const roots = [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA].filter(Boolean);
+    return ['Google\\Chrome\\Application\\chrome.exe', 'Microsoft\\Edge\\Application\\msedge.exe', 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'].flatMap(relative => roots.map(root => join(root, relative))).filter(path => fs.existsSync(path)).map(command => ({command, prefix: []}));
+  }
+  const dirs = (process.env.PATH || '').split(':');
+  return ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'brave-browser'].flatMap(name => dirs.map(dir => join(dir, name))).filter(path => fs.existsSync(path)).map(command => ({command, prefix: []}));
+}
+function openBrowser() {
+  const [browser] = browserCandidates();
+  if (!browser) throw Error(`Не найден Chrome, Chromium, Edge или Brave. Укажи прокси 127.0.0.1:${mobile.corePort} в настройках браузера вручную.`);
+  const profile = join(app.getPath('userData'), 'chrome-profile');
+  const args = [...browser.prefix, `--proxy-server=127.0.0.1:${mobile.corePort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', 'http://example.com/'];
+  const child = spawn(browser.command, args, {detached: true, stdio: 'ignore', windowsHide: true});
+  child.on('error', error => logError('Browser launch: ' + error.message));
+  child.unref();
+  return true;
+}
+ipcMain.handle('open-browser', event => {validate(event);return openBrowser();});
 ipcMain.handle('mobile-status', event => {validate(event);return mobile.status();});
 ipcMain.handle('report-error',(event,message)=>{validate(event);if(typeof message==='string')logError(message);});
 ipcMain.handle('mobile-enable', (event,address) => {validate(event);const action=mobileOperation.then(()=>mobile.enable(address));mobileOperation=action.catch(()=>{});return action;});

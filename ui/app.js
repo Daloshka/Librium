@@ -72,6 +72,8 @@ function caPath(){
   return platform==='win32'?'$env:LOCALAPPDATA\\Librium\\ca.crt':platform==='darwin'?'$HOME/Library/Application Support/Librium/ca.crt':'${XDG_DATA_HOME:-$HOME/.local/share}/librium/ca.crt';
 }
 function renderConnectionInfo(){
+  // The launcher needs Electron; the plain browser UI at the core's port has no way to spawn processes.
+  for(const id of ['browser','browser-hint'])$(id).hidden=!window.librium?.openBrowser;
   for(const id of ['proxy-address','dialog-proxy','empty-proxy']){const node=$(id);if(node)node.textContent=proxyAddress;}
   $('ca-install').textContent=platform==='win32'?'Скачай CA и установи его в доверенные корневые сертификаты текущего пользователя.'
     :platform==='darwin'?'Скачай CA и открой файл в «Связке ключей» (Keychain Access): найди Librium Local CA и в свойствах доверия выбери «Всегда доверять». Или в Терминале: security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db <путь к ca.crt>'
@@ -334,6 +336,7 @@ $('find').oninput = renderDetail;
 $('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? '▶ Продолжить' : 'Ⅱ Пауза списка'; $('pause').classList.toggle('active',paused); };
 $('clear').onclick = async () => { if(!window.confirm('Удалить всю сохранённую историю запросов с диска?'))return; try { await api('traffic','DELETE'); ++listGeneration; pageOffset=0;pageAnchor=null;pageTotal=0;pageMatched=0; rows = []; selected = null; detail = null; detailSignature = ''; rowsSignature = ''; renderRows(); renderDetail(); $('selection').replaceChildren(el('span','История очищена')); } catch(error) { showError(error); } };
 $('setup').onclick = () => $('dialog').showModal(); $('close').onclick = () => $('dialog').close();
+$('browser').onclick=async()=>{try{await window.librium.openBrowser();toast('Браузер запущен через прокси');}catch(error){showError(error);}};
 $('ca').onclick = async () => { try { if(window.librium) { if(await window.librium.saveCertificate()) toast('Сертификат сохранён'); } else { const res = await fetch('/api/ca',{headers:{'x-librium-token':token}}); if(!res.ok) throw Error(`API: ${res.status}`); const url=URL.createObjectURL(await res.blob()); const a=el('a'); a.href=url; a.download='librium-ca.crt'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); } } catch(error) { showError(error); } };
 document.addEventListener('keydown',event=>{if(event.ctrlKey && event.key.toLowerCase()==='k'){event.preventDefault();$('filter').focus();}if(event.ctrlKey && event.key.toLowerCase()==='f'){event.preventDefault();$('find').focus();}});
 const divider=$('divider');
