@@ -9,9 +9,9 @@
   "scripts": {
     "start": "electron .",
     "build:core": "node scripts/build-core.cjs",
-    "dist": "npm run build:core && electron-builder",
-    "dist:win": "npm run build:core && electron-builder --win",
-    "dist:mac": "npm run build:core && electron-builder --mac",
+    "dist": "npm run build:core && electron-builder --publish never",
+    "dist:win": "npm run build:core && electron-builder --win --publish never",
+    "dist:mac": "npm run build:core && electron-builder --mac --publish never",
     "test:ui": "node scripts/ui-smoke.cjs",
     "test:electron": "electron scripts/electron-smoke.cjs"
   },
