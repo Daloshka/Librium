@@ -20,6 +20,7 @@ window.librium={request:async path=>path==='traffic'?fixtures:path.startsWith('t
 window.setTimeout=()=>0;
 window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
 window.HTMLDialogElement.prototype.close=function(){this.open=false;};
+window.eval(readFileSync('ui/i18n.js','utf8'));
 window.eval(readFileSync('ui/filters.js','utf8'));
 window.eval(readFileSync('ui/app.js','utf8'));
 const flush=()=>new Promise(resolve=>setImmediate(resolve));

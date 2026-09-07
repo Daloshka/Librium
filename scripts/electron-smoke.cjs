@@ -1,7 +1,8 @@
 process.env.LIBRIUM_ATTACH_ONLY='1';
+process.env.LIBRIUM_LANG=process.env.LIBRIUM_LANG||'ru';
 // Runtime integration check: load the real sandboxed renderer and call its IPC bridge.
 const {app,dialog} = require('electron');
-const downloadPaths=[];dialog.showSaveDialog=async(_window,options)=>{assert.equal(options.title,'Скачать файл');const file=resolve('target/download-smoke-'+require('node:path').basename(options.defaultPath));downloadPaths.push(file);return {canceled:false,filePath:file};};
+const downloadPaths=[];dialog.showSaveDialog=async(_window,options)=>{assert.ok(['Скачать файл','Save file'].includes(options.title),options.title);const file=resolve('target/download-smoke-'+require('node:path').basename(options.defaultPath));downloadPaths.push(file);return {canceled:false,filePath:file};};
 const {writeFileSync, mkdirSync, readFileSync, existsSync} = require('node:fs');
 const {resolve} = require('node:path');
 const profile=resolve('target/electron-smoke-profile');mkdirSync(profile,{recursive:true});app.setPath('userData',profile);
@@ -67,7 +68,7 @@ app.on('browser-window-created', (_event, window) => {
           if(ws.selected&&ws.request.includes('client hello')&&ws.response.includes('client hello'))break;
           await new Promise(r=>setTimeout(r,100));
         }
-        assert.ok(ws.active.every(Boolean));assert.match(ws.request,/client hello/);assert.match(ws.response,/server welcome/);assert.match(ws.response,/BINARY/);assert.doesNotMatch(ws.request,/Передача прервана/);
+        assert.ok(ws.active.every(Boolean));assert.match(ws.request,/client hello/);assert.match(ws.response,/server welcome/);assert.match(ws.response,/BINARY/);assert.doesNotMatch(ws.request,/Передача прервана|Transfer interrupted/);
         console.log('WebSocket UI smoke OK: outgoing/incoming text and binary messages, automatic WS tabs, no false HTTP body error');
       }
       console.log('Electron smoke OK: sandboxed preload, real Rust IPC, route validation, two panes, colored theme');

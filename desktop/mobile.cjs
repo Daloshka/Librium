@@ -2,6 +2,9 @@ const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const { randomUUID, X509Certificate } = require('node:crypto');
+const i18n = require('./i18n.cjs');
+// The phone page is HTML, so translated text is escaped before it is inlined.
+const t = (key, params) => i18n.t(key, params).replace(/[&<>]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[character]));
 
 function privateIp(ip) {
   const parts = ip.split('.').map(Number);
@@ -34,12 +37,12 @@ class Mobile {
   status() { return {enabled:!!this.active, addresses:this.listAddresses(), ...this.active, lastClient:this.lastClient}; }
   track(socket) { this.sockets.add(socket); socket.on('close',()=>this.sockets.delete(socket));socket.on('error',()=>{}); }
   async enable(address) {
-    if(this.active) {if(this.active.address===address)return this.status();throw Error('Сначала отключи текущее подключение телефона.');}
+    if(this.active) {if(this.active.address===address)return this.status();throw Error(i18n.t('lan.busy'));}
     const adapter=this.listAddresses().find(a=>a.address===address);
-    if(!adapter || !privateIp(address)) throw Error('Выбери домашний IPv4-адрес компьютера.');
+    if(!adapter || !privateIp(address)) throw Error(i18n.t('lan.pickAddress'));
     const pem=await this.getCertificate(), der=new X509Certificate(pem).raw, key=randomUUID();
     const prefix='/'+key;
-    const page=`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Librium — телефон</title><style>body{font:16px/1.6 system-ui;background:#151a2d;color:#d9e3ff;max-width:600px;padding:25px;margin:auto}a{display:block;background:#7553ba;padding:15px;border-radius:9px;color:white;text-align:center}code{color:#93e8c6}small{color:#a5b5d1}</style><h1>Librium · Wi-Fi</h1><p>Сначала установи сертификат, затем включи прокси в настройках домашней Wi-Fi сети.</p><a href="${prefix}/ca.crt">Скачать сертификат CA</a><p>Прокси: <code>${address}</code><br>Порт: <code>${this.proxyPort}</code></p><h3>iPhone / iPad</h3><p>Установи загруженный профиль в Настройки → Основные → VPN и управление устройством. Затем Основные → Об этом устройстве → Доверие сертификатам: включи полное доверие Librium Local CA.</p><p>Wi-Fi → ⓘ рядом с домашней сетью → Настройка прокси → Вручную. Введи адрес и порт выше, аутентификация выключена.</p><h3>Android</h3><p>В настройках безопасности найди «Установить сертификат» → «Сертификат CA» и выбери скачанный файл. В настройках домашней Wi-Fi сети найди Прокси → Вручную и введи адрес и порт выше.</p><p>Проверь в браузере: открой https://example.com. Запрос появится в Librium на компьютере.</p><small>Некоторые приложения не используют Wi-Fi-прокси или не доверяют пользовательским CA. После работы выключи прокси в телефоне.</small></html>`;
+    const page=`<!doctype html><html lang="${i18n.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t('lan.pageTitle')}</title><style>body{font:16px/1.6 system-ui;background:#151a2d;color:#d9e3ff;max-width:600px;padding:25px;margin:auto}a{display:block;background:#7553ba;padding:15px;border-radius:9px;color:white;text-align:center}code{color:#93e8c6}small{color:#a5b5d1}</style><h1>Librium · Wi-Fi</h1><p>${t('lan.pageIntro')}</p><a href="${prefix}/ca.crt">${t('lan.pageDownload')}</a><p>${t('lan.pageProxy')} <code>${address}</code><br>${t('lan.pagePort')} <code>${this.proxyPort}</code></p><h3>iPhone / iPad</h3><p>${t('lan.pageIos')}</p><p>${t('lan.pageIosProxy')}</p><h3>Android</h3><p>${t('lan.pageAndroid')}</p><p>${t('lan.pageCheck')}</p><small>${t('lan.pageNote')}</small></html>`;
     const serveCertificate=(req,res,path)=>{
       res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
       res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'");
@@ -83,7 +86,7 @@ class Mobile {
       server.on('clientError',(_error,socket)=>socket.destroy());
     }
     try{await bind(proxy,this.proxyPort,address);await bind(certServer,this.certificatePort,address);}
-    catch(error){for(const socket of this.sockets)socket.destroy();for(const server of [proxy,certServer])server.close();throw Error(`Не удалось открыть порты телефона: ${error.message}`);}
+    catch(error){for(const socket of this.sockets)socket.destroy();for(const server of [proxy,certServer])server.close();throw Error(i18n.t('lan.portsFailed', {message: error.message}));}
     this.servers=[proxy,certServer];this.lastClient=null;
     this.active={address,proxyPort:this.proxyPort,certificatePort:this.certificatePort,url:`http://${address}:${this.certificatePort}${prefix}`};
     return this.status();

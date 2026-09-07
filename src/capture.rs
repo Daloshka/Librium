@@ -197,7 +197,7 @@ impl History {
                 elapsed_ms: row.summary.elapsed_ms,
                 error: row.summary.error.or_else(|| {
                     (!row.response.complete)
-                        .then(|| "Соединение завершено при обновлении Librium".into())
+                        .then(|| "Connection ended when Librium was updated".into())
                 }),
                 request: payload(row.request)?,
                 response: payload(row.response)?,
@@ -279,8 +279,9 @@ impl<B> Drop for Completion<B> {
                 row.request.complete
             };
             if !complete {
-                row.error
-                    .get_or_insert_with(|| "Передача прервана до получения полного тела".into());
+                row.error.get_or_insert_with(|| {
+                    "Transfer interrupted before the full body arrived".into()
+                });
                 row.dirty = true;
             }
         }

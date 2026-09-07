@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest a capability or an improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas that are still taking shape fit better in [Discussions](https://github.com/Daloshka/Librium/discussions). Use this form when you can name the problem and what would solve it.
+
+        Keep examples synthetic: no real hostnames, tokens or captured traffic.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do and where Librium gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What the feature would look like in the UI or on the command line.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you tried
+      description: Workarounds, other tools, or why the existing filters and sessions are not enough.
+    validations:
+      required: false
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Platforms it matters for
+      options:
+        - label: Windows
+        - label: macOS
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Desktop app (window, UI, filters, preview)
+        - Proxy core (capture, HTTPS, CA, HTTP/2)
+        - WebSocket
+        - Phone capture over Wi-Fi
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to work on this myself.

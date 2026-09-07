@@ -1,6 +1,6 @@
 # Librium: настройка прокси в macOS и как это устроено
 
-[← Назад к индексу](../README.md) · Связано: [Архитектура](architecture.md), [Сеть](network.md), [Настройка прокси в Windows](proxy-setup.md)
+[← Назад к индексу](../README.ru.md) · Связано: [Архитектура](architecture.md), [Сеть](network.md), [Настройка прокси в Windows](proxy-setup.md)
 
 Дополнение к [архитектуре](architecture.md) и [сети](network.md). Здесь про то, как
 приложения в macOS узнают, что им надо ходить через 127.0.0.1:8080, где эти

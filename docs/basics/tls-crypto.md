@@ -1,6 +1,6 @@
 # Как HTTP превращается в шифротекст и почему это безопасно
 
-[← Назад к индексу](../../README.md) · Связано: [Версии TLS](tls-versions.md), [Сертификаты](certificates.md), [Глоссарий](protocols.md#tls-transport-layer-security)
+[← Назад к индексу](../../README.ru.md) · Связано: [Версии TLS](tls-versions.md), [Сертификаты](certificates.md), [Глоссарий](protocols.md#tls-transport-layer-security)
 
 Разбор на примере TLS 1.3. Вопрос, на который отвечает документ:
 наблюдатель видит все байты соединения от первого до последнего,

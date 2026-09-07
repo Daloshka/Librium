@@ -1,6 +1,6 @@
 # Версии TLS: чем отличаются и что используется сегодня
 
-[← Назад к индексу](../../README.md) · Связано: [Криптография TLS](tls-crypto.md), [Сертификаты](certificates.md), [Глоссарий](protocols.md#tls-transport-layer-security)
+[← Назад к индексу](../../README.ru.md) · Связано: [Криптография TLS](tls-crypto.md), [Сертификаты](certificates.md), [Глоссарий](protocols.md#tls-transport-layer-security)
 
 ---
 

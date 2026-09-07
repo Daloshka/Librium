@@ -280,6 +280,15 @@ async fn main() -> Result<()> {
         .route("/api/storage-flush", axum::routing::post(flush))
         .route("/api/info", get(info))
         .route(
+            "/i18n.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../ui/i18n.js"),
+                )
+            }),
+        )
+        .route(
             "/filters.js",
             get(|| async {
                 (

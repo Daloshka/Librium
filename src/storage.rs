@@ -262,11 +262,11 @@ impl Store {
         // A process restart cannot resume an old socket, but its captured data
         // must remain inspectable instead of appearing pending forever.
         db.execute_batch("UPDATE traffic SET
-            summary=json_set(summary, '$.error', 'Соединение прервано при остановке Librium'),
-            detail=json_set(detail, '$.summary.error', 'Соединение прервано при остановке Librium')
+            summary=json_set(summary, '$.error', 'Connection interrupted when Librium stopped'),
+            detail=json_set(detail, '$.summary.error', 'Connection interrupted when Librium stopped')
             WHERE json_extract(summary,'$.error') IS NULL
             AND (json_extract(detail,'$.request.complete')=0 OR json_extract(detail,'$.response.complete')=0);")?;
-        db.execute("UPDATE ws_sessions SET state='closed',error='Соединение закрыто при перезапуске Librium' WHERE state='open'", [])?;
+        db.execute("UPDATE ws_sessions SET state='closed',error='Connection closed when Librium restarted' WHERE state='open'", [])?;
         Ok(Self(db))
     }
     pub fn max_id(&self) -> Result<u64> {

@@ -11,6 +11,13 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # Signing is opt-in: the five secrets below enable Developer ID signing and notarization on macOS.
+    # They are handed only to the steps that need them; without the full set the macOS build stays ad-hoc signed.
+    # Windows stays unsigned: add Authenticode later by setting WIN_CSC_LINK (base64 .pfx) and WIN_CSC_KEY_PASSWORD
+    # as env of the build step; electron-builder picks them up.
+    env:
+      MAC_SIGNING: ${{ secrets.MAC_CERT_P12_BASE64 != '' && secrets.MAC_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+      MAC_SIGNING_PARTIAL: ${{ (secrets.MAC_CERT_P12_BASE64 != '' || secrets.MAC_CERT_PASSWORD != '' || secrets.APPLE_ID != '' || secrets.APPLE_APP_SPECIFIC_PASSWORD != '' || secrets.APPLE_TEAM_ID != '') && !(secrets.MAC_CERT_P12_BASE64 != '' && secrets.MAC_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,10 +26,64 @@ jobs:
           cache: npm
       - name: Rust toolchain
         run: rustup update stable
-      - name: Build installers
+      - name: Install dependencies
+        run: npm ci
+      - name: Signing secrets are incomplete
+        if: runner.os == 'macOS' && env.MAC_SIGNING_PARTIAL == 'true'
+        run: echo "::warning::Some of MAC_CERT_P12_BASE64, MAC_CERT_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID are missing; building an unsigned (ad-hoc) macOS app"
+      - name: Import signing certificate
+        if: runner.os == 'macOS' && env.MAC_SIGNING == 'true'
+        env:
+          MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
         run: |
-          npm ci
-          npm run dist
+          set -euo pipefail
+          certificate="$RUNNER_TEMP/librium-certificate.p12"
+          keychain="$RUNNER_TEMP/librium-signing.keychain-db"
+          password="$(openssl rand -base64 24)"
+          printf '%s' "$MAC_CERT_P12_BASE64" | base64 --decode > "$certificate"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$certificate" -k "$keychain" -f pkcs12 -P "$MAC_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm -f "$certificate"
+          identities="$(security find-identity -v -p codesigning "$keychain")"
+          echo "$identities"
+          case "$identities" in
+            *"Developer ID Application"*) ;;
+            *) echo "::error::MAC_CERT_P12_BASE64 holds no usable Developer ID Application identity"; exit 1 ;;
+          esac
+      - name: Build installers (signed and notarized)
+        if: runner.os == 'macOS' && env.MAC_SIGNING == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run dist -- -c.mac.identity="Developer ID Application" -c.mac.hardenedRuntime=true -c.mac.notarize=true
+      - name: Build installers
+        if: runner.os != 'macOS' || env.MAC_SIGNING != 'true'
+        run: npm run dist
+      - name: Verify signature and notarize the disk image
+        if: runner.os == 'macOS' && env.MAC_SIGNING == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          app="$(ls -d dist/v*/mac*/Librium.app | head -1)"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=4 "$app" 2>&1 | grep -E 'Authority|TeamIdentifier|flags'
+          spctl --assess --type exec -vv "$app"
+          xcrun stapler validate "$app"
+          # The app inside is already notarized and stapled; notarize the dmg too so it opens without a network check.
+          for dmg in dist/v*/*.dmg; do
+            xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$dmg"
+            xcrun stapler validate "$dmg"
+          done
       - name: Windows artifacts
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -55,3 +116,9 @@ jobs:
             dist/v*/*.exe
             dist/v*/*.dmg
             dist/v*/*.zip
+      - name: Remove temporary keychain
+        if: always() && runner.os == 'macOS' && env.MAC_SIGNING == 'true'
+        run: |
+          security list-keychains -d user -s login.keychain-db || true
+          security delete-keychain "$RUNNER_TEMP/librium-signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/librium-certificate.p12"

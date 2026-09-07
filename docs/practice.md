@@ -1,6 +1,6 @@
 # Практика: увидеть теорию своими глазами
 
-[← Назад к индексу](../README.md) · Связано: [Сеть](network.md), [TCP handshake](basics/tcp-handshake.md), [Глоссарий](basics/protocols.md)
+[← Назад к индексу](../README.ru.md) · Связано: [Сеть](network.md), [TCP handshake](basics/tcp-handshake.md), [Глоссарий](basics/protocols.md)
 
 Лестница из пяти ступеней от наблюдения к своему коду. Команды в разделах
 1 и 2 проверены в примере, вывод приведён как пример.

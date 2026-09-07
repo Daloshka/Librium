@@ -1,0 +1,94 @@
+name: Bug report
+description: Something in Librium does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.
+
+        **Never attach raw traffic.** Captured requests and responses contain cookies, authorization headers, tokens and personal data. Redact hostnames, identifiers and credentials before pasting anything, use synthetic examples such as `example.com`, and never share the private CA key or the history database. See [SECURITY.md](https://github.com/Daloshka/Librium/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Librium version
+      description: Shown at the bottom of the left rail, or taken from the name of the file you downloaded.
+      placeholder: 0.5.4
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: macOS 15.5 / Windows 11 23H2
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where it happens
+      description: Best guess is fine.
+      options:
+        - Desktop app (window, UI, filters, preview)
+        - Proxy core (capture, HTTPS, CA, HTTP/2)
+        - WebSocket
+        - Phone capture over Wi-Fi
+        - Install, update or first launch
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including the exact error text if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use a request to a public test endpoint whenever you can reproduce it that way.
+      placeholder: |
+        1. Start Librium and turn the system proxy on
+        2. Run `curl -x http://127.0.0.1:8080 https://example.com`
+        3. Open the entry in the history
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Desktop logs are written to `desktop.log` in `%APPDATA%\librium-desktop\logs` on Windows and in `~/Library/Application Support/librium-desktop/logs` on macOS. The core prints to the console when started from a terminal. Paste only the lines around the failure, with URLs, headers and cookies redacted.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and discussions.
+          required: true
+        - label: Everything I pasted is redacted or synthetic; no real credentials, cookies, tokens or private hostnames.
+          required: true

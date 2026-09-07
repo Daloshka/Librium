@@ -1,60 +1,109 @@
 # Librium
 
-**Смотри, что происходит между приложением и сетью.**
+**English** · [Русский](README.ru.md)
 
-Librium — современный open-source инспектор HTTP, HTTPS и WebSocket для Windows и macOS. Прокси на Rust, полноценное десктопное приложение на Electron и история в SQLite: запросы, ответы, изображения, аудио и WebSocket-сообщения собраны в одном рабочем пространстве.
+**See what happens between an app and the network.**
 
-Разбирай API, отлаживай клиентские приложения, проверяй заголовки и изучай сетевое поведение. Цветной интерфейс помогает читать трафик, а сохранённые наборы фильтров — быстро возвращаться к нужной задаче.
+Librium is a free, open-source HTTP, HTTPS and WebSocket inspector for Windows and macOS. A Rust proxy core, a real Electron desktop app and SQLite history: requests, responses, images, audio and WebSocket messages in one workspace.
+
+Explore APIs, debug client apps, check headers and study network behavior. The color-coded interface keeps traffic readable, and saved filter sessions bring you straight back to the task you were working on.
+
+[![Checks](https://github.com/Daloshka/Librium/actions/workflows/checks.yml/badge.svg)](https://github.com/Daloshka/Librium/actions/workflows/checks.yml)
+[![Latest release](https://img.shields.io/github/v/release/Daloshka/Librium)](https://github.com/Daloshka/Librium/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Daloshka/Librium/total)](https://github.com/Daloshka/Librium/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **Rust + Electron · HTTP / HTTPS / WebSocket · SQLite · MIT**
 
-[Возможности](#возможности) · [Скриншоты](#скриншоты) · [Установка](#установка) · [Настройка HTTPS](#подключение-https) · [Документация](#документация)
+[Why Librium](#why-librium) · [Screenshots](#screenshots) · [Install](#install) · [HTTPS setup](#https-setup) · [Documentation](#documentation)
 
-## Возможности
+![Librium demo](docs/images/demo.webp)
 
-- HTTP/1.1 и HTTP/2 через явный прокси; HTTPS с локальным CA.
-- История в SQLite без автоматического удаления по числу запросов.
-- Поиск, фильтры HTTP/WebSocket, именованные сессии с автосохранением.
-- Сортировка всей истории по ID, методу, адресу, коду и размеру.
-- Request и Response рядом: заголовки, текст, JSON, Hex, поиск и копирование URL.
-- Просмотр PNG, SVG и других изображений, масштаб 1:1 и перетаскивание.
-- Аудиоплеер и сохранение захваченных медиа в файл.
-- WebSocket-сообщения в обе стороны: текст, бинарные данные, время и история.
-- Опциональное подключение телефона в домашней сети.
+## Screenshots
 
-## Скриншоты
+Request history and workspace:
 
-История запросов и рабочая область:
+![HTTP request history](docs/images/http-history.webp)
 
-![История HTTP-запросов](docs/images/http-history.webp)
+Image preview in a response (synthetic demo traffic):
 
-Просмотр изображения в ответе. Параметры URL и служебные идентификаторы браузера скрыты:
+![Image preview in a response](docs/images/media-preview.webp)
 
-![Предпросмотр изображения в ответе](docs/images/media-preview.webp)
+## Why Librium
 
-## Установка
+- **Free and open source.** MIT license, no account, no subscription, no cloud sync and no telemetry — the captured traffic stays on your machine.
+- **The same tool on Windows and macOS.** One interface, one set of shortcuts, one history format.
+- **HTTP/1.1 and HTTP/2** through an explicit proxy; HTTPS with a local CA that you install yourself.
+- **History in SQLite**, kept on disk and never trimmed by request count. Sort the whole history by ID, method, host and path, status or size, and page through it.
+- **Request and response side by side**: headers, text, JSON, hex, search inside bodies and copy URL.
+- **Search, quick filters and a filter builder** for HTTP and WebSocket, saved as named sessions with autosave.
+- **Media, not just text.** PNG, SVG and other images with 1:1 zoom and drag, an audio player, and saving captured media to a file.
+- **WebSocket in both directions**: text and binary frames with timing and per-connection history.
+- **Phone capture over your home Wi-Fi**, opt-in: LAN access is off by default and the core listens on loopback only.
+- **Works behind a VPN.** One button opens a separate Chrome profile that goes through Librium even when a tunnel swallows the system proxy.
+- **Interface in English and Russian**, switched in the app with one click.
 
-### Готовое приложение
+## Librium and the alternatives
 
-Если для выбранной версии опубликована сборка, открой раздел **Releases** этого репозитория.
+| | Free | Open source | Windows | macOS | Phone over Wi-Fi | WebSocket | Unlimited on-disk history | No account / cloud |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Librium** | Yes | Yes (MIT) | Yes | Yes | Yes | Yes | Yes (SQLite) | Yes |
+| Charles | No (~$50 one-time) | No | Yes | Yes | Yes | Yes | — | Yes |
+| Proxyman | Partly (freemium) | No | Yes | Yes | Yes | Yes | — | — |
+| Fiddler Everywhere | No (subscription) | No | Yes | Yes | Yes | Yes | — | No (sign-in) |
+| mitmproxy | Yes | Yes | Yes | Yes | Yes | Yes | — | Yes |
+| HTTP Toolkit | Partly (free tier) | Yes (core) | Yes | Yes | Yes | Yes | — | — |
 
-**Windows.** Скачай `Librium <версия>.exe` и запусти его. Portable-версия не требует установки Node.js или Rust. Для распакованной сборки сохраняй папку `win-unpacked` целиком.
+“—” means “depends on the plan or on how you run it”, not “missing”. A few notes so the table is not read as more than it is:
 
-**macOS.** Скачай `Librium-<версия>-arm64.dmg` (сборка для Apple Silicon; на Intel собери приложение из исходников — получится `Librium-<версия>-x64.dmg`), открой образ и перетащи Librium в «Программы». То же приложение есть и в виде `.zip`. Сборка подписана только ad-hoc, без Apple Developer ID, поэтому при первом запуске система откажется её открыть. Сними карантин с приложения:
+- **Charles** is a mature paid tool with a one-time license and a time-limited trial.
+- **Proxyman** is a polished macOS-first app with Windows and Linux builds; several features are behind the paid tier.
+- **Fiddler Everywhere** is a paid subscription and asks you to sign in to a Telerik account.
+- **mitmproxy** is free and open source, but it is a CLI plus a web UI rather than a desktop application.
+- **HTTP Toolkit** is open source with paid Pro features.
+- Most of these keep the captured session in memory and write it out on demand; Librium streams it into SQLite as it goes, so the history survives a restart without an export step.
+
+Features change. If a cell is out of date, [open an issue](https://github.com/Daloshka/Librium/issues) and it will be fixed.
+
+## Install
+
+### Prebuilt app
+
+Open the [Releases](https://github.com/Daloshka/Librium/releases) page of this repository.
+
+**Windows.** Download `Librium.<version>.exe` and run it. The portable build needs neither Node.js nor Rust. If you use an unpacked build instead, keep the whole `win-unpacked` folder together.
+
+**macOS.** Download `Librium-<version>-arm64.dmg` (Apple Silicon; on Intel build from source, which produces `Librium-<version>-x64.dmg`), open the image and drag Librium into Applications. The same app is also published as a `.zip`. The build is ad-hoc signed, without an Apple Developer ID, so the first launch is refused. Remove the quarantine attribute:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Librium.app
 ```
 
-Без терминала: после первого отказа открой Системные настройки → Конфиденциальность и безопасность и нажми «Всё равно открыть» (macOS 15 и новее); на более старых версиях достаточно правого клика по приложению → «Открыть».
+Without a terminal: after the refusal open System Settings → Privacy & Security and press “Open Anyway” (macOS 15 and newer); on older versions right-click the app → “Open”.
 
-Если готового релиза пока нет, собери приложение из исходников по инструкции ниже.
+### Homebrew (macOS)
 
-### Из исходников
+Apple Silicon, macOS 13 or newer (the cask enforces both).
 
-Скачай исходники через **Code → Download ZIP** и распакуй архив либо клонируй репозиторий. Открой PowerShell или терминал в папке с `package.json` и `Cargo.toml`.
+```sh
+brew install --cask daloshka/tap/librium
+xattr -dr com.apple.quarantine /Applications/Librium.app
+```
 
-**Windows.** Нужны актуальный стабильный Rust, Node.js 24 или новее, Visual Studio Build Tools с инструментами C++ и Windows SDK. Для некоторых нативных зависимостей может понадобиться CMake.
+Homebrew keeps the quarantine attribute on downloaded apps, so the second command is needed once after every install or upgrade until the builds are notarized.
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add daloshka https://github.com/Daloshka/scoop-bucket
+scoop install librium
+```
+
+### From source
+
+Download the sources with **Code → Download ZIP** and unpack them, or clone the repository. Open PowerShell or a terminal in the folder that contains `package.json` and `Cargo.toml`.
+
+**Windows.** You need current stable Rust, Node.js 24 or newer, and Visual Studio Build Tools with the C++ tools and the Windows SDK. Some native dependencies may also need CMake.
 
 ```powershell
 npm ci
@@ -62,7 +111,7 @@ npm run build:core
 npm start
 ```
 
-**macOS.** Нужны Xcode Command Line Tools, Rust через [rustup](https://rustup.rs) и Node.js 24 или новее (`brew install node` либо nvm).
+**macOS.** You need the Xcode Command Line Tools, Rust via [rustup](https://rustup.rs) and Node.js 24 or newer (`brew install node` or nvm).
 
 ```sh
 xcode-select --install
@@ -72,29 +121,113 @@ npm run build:core
 npm start
 ```
 
-Команда `npm run build:core` — обычный Node-скрипт, она одинаково работает и в PowerShell, и в терминале.
+`npm run build:core` is a plain Node script and behaves the same in PowerShell and in a terminal.
 
-Чтобы собрать приложение для текущей системы:
+To package the app for the current system:
 
 ```sh
 npm run dist
 ```
 
-Результат находится в `dist/v<версия>`: `Librium <версия>.exe` в Windows, `Librium-<версия>-arm64.dmg` (на Intel — `-x64.dmg`) и `.zip` в macOS.
+The result lands in `dist/v<version>`: `Librium <version>.exe` on Windows, `Librium-<version>-arm64.dmg` (`-x64.dmg` on Intel) and `.zip` on macOS.
 
-Только Rust-ядро: `./run.sh` (macOS и Linux), `./run.ps1` (Windows) или `cargo run --locked`. Интерфейс/API ядра слушает `127.0.0.1:3000`, прокси — `127.0.0.1:8080`; оба порта настраиваются.
+Rust core only: `./run.sh` (macOS and Linux), `./run.ps1` (Windows) or `cargo run --locked`. The core serves its UI and API on `127.0.0.1:3000` and the proxy on `127.0.0.1:8080`; both ports are configurable.
 
-### Порты и каталоги
+## Quick start
 
-| Переменная | По умолчанию | Что задаёт |
+1. Start Librium and wait for the proxy to connect.
+2. Point your browser or app at the HTTP proxy `127.0.0.1:8080`. For HTTPS, trust the local certificate as described below.
+3. Open a page or send a request — it shows up in the history.
+4. Select a row: the request is on the left, the response on the right. Switch between headers, body, pretty and hex; media can be previewed, played and downloaded.
+5. Use search and the filters by traffic type, method and status. Save a set as its own filter session to come back to it after a restart.
+
+New requests appear at the top by default. Click a column header to change the sorting.
+
+The interface speaks English and Russian: the **EN / RU** button at the bottom of the left rail switches the language and reloads the window. Librium picks your system language on the first run.
+
+## HTTPS setup
+
+On the first run Librium creates a CA in its data directory:
+
+| OS | Directory |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\Librium` |
+| macOS | `~/Library/Application Support/Librium` |
+| Linux | `~/.local/share/librium` |
+
+Set the HTTP/HTTPS proxy to `127.0.0.1:8080` in the client you want to inspect and add `ca.crt` to that client's trusted certificates. The certificate and a short guide are available inside the app.
+
+A check that does not touch the system certificate store — in PowerShell:
+
+```powershell
+curl.exe --ssl-revoke-best-effort --proxy http://127.0.0.1:8080 --cacert "$env:LOCALAPPDATA\Librium\ca.crt" https://example.com
+```
+
+In a macOS terminal:
+
+```sh
+curl --proxy http://127.0.0.1:8080 --cacert "$HOME/Library/Application Support/Librium/ca.crt" https://example.com
+```
+
+On macOS the CA is trusted through Keychain Access: open `ca.crt`, find **Librium Local CA** and set Trust to “Always Trust”. The same from a terminal:
+
+```sh
+security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$HOME/Library/Application Support/Librium/ca.crt"
+```
+
+The macOS system proxy is set per network service: System Settings → Network → the service → Details… → Proxies → “Web proxy (HTTP)” and “Secure web proxy (HTTPS)” with `127.0.0.1` and `8080`. The same from a terminal (replace `Wi-Fi` with your service name from `networksetup -listallnetworkservices`):
+
+```sh
+networksetup -setwebproxy Wi-Fi 127.0.0.1 8080
+networksetup -setsecurewebproxy Wi-Fi 127.0.0.1 8080
+```
+
+Turn it off when you are done:
+
+```sh
+networksetup -setwebproxystate Wi-Fi off
+networksetup -setsecurewebproxystate Wi-Fi off
+```
+
+Librium never enables the system proxy and never installs the CA for you. Switch the proxy off in the client or in the system after a session, and never share the private key `ca.key`.
+
+### Using a VPN
+
+Network Extension based VPN clients on macOS (Xray, sing-box, Amnezia, WireGuard and friends) and many Windows tunnels ignore the system proxy: while the tunnel is up, `scutil --proxy` is empty and requests bypass Librium even if a proxy is set for Wi-Fi or for the VPN service itself. Librium keeps working — its own outgoing connections go through the tunnel like any other app's.
+
+The fix is to give the proxy to the browser instead of to the system. The **“Open Chrome through the proxy”** button in the “HTTPS setup” dialog launches a separate Chrome, Chromium, Edge or Brave profile with a `--proxy-server` flag that does not depend on system settings or on the VPN. The profile lives in Electron's data directory and does not touch your main browser. The same by hand:
+
+```sh
+open -na "Google Chrome" --args --proxy-server=127.0.0.1:8080 --user-data-dir="$HOME/Library/Application Support/librium-desktop/chrome-profile"
+```
+
+```powershell
+& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --proxy-server=127.0.0.1:8080 --user-data-dir="$env:APPDATA\librium-desktop\chrome-profile"
+```
+
+Firefox is configured in its own network settings: “Manual proxy configuration”, HTTP and HTTPS `127.0.0.1:8080`. HTTPS still needs Librium's CA to be trusted.
+
+In-depth walkthroughs: [proxy setup on Windows](docs/proxy-setup.md) and [proxy setup on macOS](docs/proxy-setup-macos.md).
+
+## Phone capture
+
+Connect the phone and the computer to the same home network. In the app press **“Connect phone”**, pick the local network interface and follow the steps. LAN access is opt-in; by default the core is reachable on loopback only.
+
+In the phone's Wi-Fi settings enter the computer address shown by Librium and the proxy port `8080`. For HTTPS, install the local CA on the phone and enable full trust for it if the system asks. On Windows, allow incoming connections for Librium in the firewall for private networks. On macOS, if the firewall is on, allow incoming connections for Librium (System Settings → Network → Firewall → Options…); the system usually offers this the first time LAN access is enabled.
+
+Switch the proxy off on the phone when you are done. Some apps ignore the system proxy or refuse user-installed certificates, so their traffic may stay invisible.
+
+## Ports and directories
+
+| Variable | Default | What it sets |
 | --- | --- | --- |
-| `LIBRIUM_UI_PORT` | `3000` | Порт интерфейса и API ядра на `127.0.0.1`. |
-| `LIBRIUM_PROXY_PORT` | `8080` | Порт HTTP/HTTPS-прокси на `127.0.0.1`. |
-| `LIBRIUM_DATA_DIR` | каталог данных системы | Где лежат CA (`ca.crt`, `ca.key`) и история `history.sqlite3`. |
+| `LIBRIUM_UI_PORT` | `3000` | Port of the core's UI and API on `127.0.0.1`. |
+| `LIBRIUM_PROXY_PORT` | `8080` | Port of the HTTP/HTTPS proxy on `127.0.0.1`. |
+| `LIBRIUM_DATA_DIR` | system data directory | Where the CA (`ca.crt`, `ca.key`) and the history `history.sqlite3` are stored. |
 
-Порт страницы с сертификатом для телефона — на единицу больше порта прокси (по умолчанию `8081`), поэтому для прокси допустимы значения от `1` до `65534`.
+The certificate page for the phone runs one port above the proxy (`8081` by default), so the proxy port may be anything from `1` to `65534`.
 
-macOS и Linux:
+macOS and Linux:
 
 ```sh
 LIBRIUM_PROXY_PORT=8088 npm start
@@ -106,123 +239,41 @@ Windows, PowerShell:
 $env:LIBRIUM_PROXY_PORT=8088; npm start
 ```
 
-Приложение передаёт эти значения ядру, поэтому задавать их достаточно один раз при запуске. Актуальный адрес прокси показан в шапке приложения.
+The app passes these values to the core, so setting them once at startup is enough. The current proxy address is shown in the app header.
 
-## Быстрый старт
+## Troubleshooting
 
-1. Запусти Librium и дождись подключения прокси.
-2. В браузере или приложении укажи HTTP-прокси `127.0.0.1:8080`. Для HTTPS настрой доверие к локальному сертификату по инструкции ниже.
-3. Открой страницу или выполни запрос — он появится в истории.
-4. Выбери строку: слева отображается запрос, справа — ответ. Переключайся между заголовками, телом, Pretty и Hex; для медиа доступны просмотр, воспроизведение и скачивание.
-5. Используй поиск и фильтры по типу трафика, методу и статусу. Сохрани набор в отдельную сессию фильтров, чтобы вернуться к нему после перезапуска.
-
-Новые запросы по умолчанию появляются сверху. Нажатие на заголовок столбца меняет сортировку.
-
-## Подключение HTTPS
-
-При первом запуске Librium создаёт CA в каталоге данных:
-
-| ОС | Каталог |
+| Symptom | What to check |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\Librium` |
-| macOS | `~/Library/Application Support/Librium` |
-| Linux | `~/.local/share/librium` |
+| The history is empty | That the client really uses the proxy `127.0.0.1:8080`, and that active filters are not hiding requests. Starting Librium does not redirect the system's traffic on its own. |
+| HTTPS certificate error | That the client trusts the CA created by this copy of Librium. Some clients need the certificate file to be passed explicitly. |
+| `ECONNREFUSED 127.0.0.1:3000` | The Rust core is not running or has exited. When running from source, run `npm run build:core` and restart the app; check that port `3000` is free or set another one with `LIBRIUM_UI_PORT`. |
+| Port `8080` is taken by another app | Start with `LIBRIUM_PROXY_PORT=<port>` and use the same port in the client. The proxy address is shown in the app header. |
+| macOS: “Librium is damaged” or “cannot be opened” | The build is not signed with an Apple Developer ID. Remove the quarantine: `xattr -dr com.apple.quarantine /Applications/Librium.app`, or press “Open Anyway” in System Settings → Privacy & Security after the refusal. |
+| The phone does not connect | Both devices on the same network, LAN access enabled, the computer address entered correctly, and the firewall allowing the connection. |
+| A `301` or `302` instead of an image | That is a redirect. Open the captured request for the address from `Location`: the image is in the final response. |
 
-Укажи в нужном клиенте HTTP/HTTPS-прокси `127.0.0.1:8080` и добавь `ca.crt` в доверенные сертификаты этого клиента. Скачать сертификат и прочитать инструкцию можно прямо в приложении.
+## Storage and limits
 
-Проверка без изменения системного хранилища сертификатов — в PowerShell:
+The history lives in the data directory next to the CA and the SQLite WAL/SHM files:
 
-```powershell
-curl.exe --ssl-revoke-best-effort --proxy http://127.0.0.1:8080 --cacert "$env:LOCALAPPDATA\Librium\ca.crt" https://example.com
-```
-
-В терминале macOS:
-
-```sh
-curl --proxy http://127.0.0.1:8080 --cacert "$HOME/Library/Application Support/Librium/ca.crt" https://example.com
-```
-
-Доверие к CA в macOS включается в «Связке ключей»: открой `ca.crt`, найди **Librium Local CA** и в разделе «Доверие» выбери «Всегда доверять». То же самое из терминала:
-
-```sh
-security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$HOME/Library/Application Support/Librium/ca.crt"
-```
-
-Системный прокси в macOS задаётся отдельно для каждого интерфейса: Системные настройки → Сеть → интерфейс → Подробнее… → Прокси → «Веб-прокси (HTTP)» и «Защищённый веб-прокси (HTTPS)» со значениями `127.0.0.1` и `8080`. Включить то же из терминала (вместо `Wi-Fi` подставь имя своего сетевого сервиса из `networksetup -listallnetworkservices`):
-
-```sh
-networksetup -setwebproxy Wi-Fi 127.0.0.1 8080
-networksetup -setsecurewebproxy Wi-Fi 127.0.0.1 8080
-```
-
-Выключить после работы:
-
-```sh
-networksetup -setwebproxystate Wi-Fi off
-networksetup -setsecurewebproxystate Wi-Fi off
-```
-
-Приложение не включает системный прокси и не устанавливает CA автоматически. После работы отключи прокси в клиенте или в системе. Приватный ключ `ca.key` никому не передавай.
-
-### Если включён VPN
-
-VPN-клиенты на базе Network Extension в macOS (Xray, sing-box, Amnezia, WireGuard и подобные) и многие туннели в Windows игнорируют системный прокси: пока туннель поднят, `scutil --proxy` пуст, и запросы идут мимо Librium, даже если прокси задан для Wi-Fi или для самого сервиса VPN. Librium при этом работает: его исходящие соединения уходят через туннель, как у любого приложения.
-
-Решение — задать прокси самому браузеру, а не системе. Кнопка **«Открыть Chrome через прокси»** в диалоге «Подключение HTTPS» запускает отдельный профиль Chrome, Chromium, Edge или Brave с флагом `--proxy-server`, который не зависит от системных настроек и VPN. Профиль хранится в каталоге данных Electron и не трогает основной браузер. То же вручную:
-
-```sh
-open -na "Google Chrome" --args --proxy-server=127.0.0.1:8080 --user-data-dir="$HOME/Library/Application Support/librium-desktop/chrome-profile"
-```
-
-```powershell
-& "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" --proxy-server=127.0.0.1:8080 --user-data-dir="$env:APPDATA\librium-desktop\chrome-profile"
-```
-
-Firefox настраивается в собственных параметрах сети: «Ручная настройка прокси», HTTP и HTTPS `127.0.0.1:8080`. Для HTTPS в любом случае нужен доверенный CA Librium.
-
-Подробные разборы: [настройка прокси в Windows](docs/proxy-setup.md) и [настройка прокси в macOS](docs/proxy-setup-macos.md).
-
-Для телефона нажми «Подключить телефон», выбери локальный сетевой интерфейс и следуй инструкции. LAN-доступ включается отдельно; по умолчанию ядро доступно только на loopback.
-
-### Подключение телефона
-
-Подключи телефон и компьютер к одной домашней сети. В настройках Wi-Fi телефона укажи адрес компьютера, показанный Librium, и порт прокси `8080`. Для HTTPS установи локальный CA на телефон и включи доверие к нему, если этого требует система. В Windows разреши входящие подключения Librium в брандмауэре для частной сети. В macOS, если брандмауэр включён, разреши входящие для Librium (Системные настройки → Сеть → Брандмауэр → Параметры…): при первом включении LAN-доступа система предложит это сама.
-
-После работы отключи прокси на телефоне. Некоторые приложения игнорируют системный прокси или не доверяют пользовательским сертификатам — их трафик может быть недоступен для просмотра.
-
-## Если что-то не работает
-
-| Симптом | Что проверить |
-| --- | --- |
-| В истории пусто | Клиент действительно использует прокси `127.0.0.1:8080`; активные фильтры не скрывают запросы. Сам запуск Librium не перенаправляет весь трафик системы. |
-| Ошибка сертификата HTTPS | Клиент доверяет CA, созданному этой копией Librium. В некоторых клиентах нужно явно указать файл сертификата. |
-| `ECONNREFUSED 127.0.0.1:3000` | Rust-ядро не запущено или завершилось. Для запуска из исходников выполни `npm run build:core` и перезапусти приложение; проверь, что порт `3000` свободен, или задай другой через `LIBRIUM_UI_PORT`. |
-| Порт `8080` занят другим приложением | Запусти с `LIBRIUM_PROXY_PORT=<порт>`; в клиенте укажи этот же порт. Адрес прокси показан в шапке приложения. |
-| macOS: «Librium повреждён» или «не удаётся открыть» | Сборка не подписана Apple Developer ID. Сними карантин: `xattr -dr com.apple.quarantine /Applications/Librium.app`, либо после отказа нажми «Всё равно открыть» в Системные настройки → Конфиденциальность и безопасность. |
-| Телефон не подключается | Устройства в одной сети, LAN-доступ включён, указан адрес компьютера, а брандмауэр разрешает соединения. |
-| Вместо картинки ответ `301` или `302` | Это перенаправление. Открой захваченный запрос по адресу из `Location`: изображение находится в конечном ответе. |
-
-## Хранение и ограничения
-
-История лежит в каталоге данных вместе с CA и служебными WAL/SHM-файлами:
-
-| ОС | Файл истории |
+| OS | History file |
 | --- | --- |
 | Windows | `%LOCALAPPDATA%\Librium\history.sqlite3` |
 | macOS | `~/Library/Application Support/Librium/history.sqlite3` |
 | Linux | `~/.local/share/librium/history.sqlite3` |
 
-- Каталог можно изменить через `LIBRIUM_DATA_DIR`.
-- Сессии фильтров и журналы: каталог данных Electron (`%APPDATA%\librium-desktop` в Windows, `~/Library/Application Support/librium-desktop` в macOS).
-- Для обычных HTTP-тел и каждого WebSocket-сообщения сохраняются первые 64 КиБ. Для изображений и аудио — до 32 МиБ. Сами данные передаются клиенту полностью.
-- История записывается периодически и при штатном закрытии; при аварийном завершении последние изменения могут не сохраниться.
-- HTTP/3/QUIC, прозрачный перехват всего трафика системы и обход certificate pinning не реализованы. Клиент должен использовать прокси и доверять CA.
+- The directory can be changed with `LIBRIUM_DATA_DIR`.
+- Filter sessions and logs live in Electron's data directory (`%APPDATA%\librium-desktop` on Windows, `~/Library/Application Support/librium-desktop` on macOS).
+- For ordinary HTTP bodies and for each WebSocket message the first 64 KiB are stored. For images and audio, up to 32 MiB. The client always receives the full data.
+- The history is written periodically and on a clean shutdown; after a crash the last changes may be missing.
+- HTTP/3 and QUIC, transparent interception of all system traffic and bypassing certificate pinning are not implemented. The client has to use the proxy and to trust the CA.
 
-Используй Librium только для трафика, который имеешь право исследовать. История может содержать пароли, cookies и персональные данные: не включай её в репозиторий и публичные отчёты. Подробнее — [SECURITY.md](SECURITY.md).
+Only use Librium on traffic you are allowed to inspect. The history can contain passwords, cookies and personal data: keep it out of repositories and public reports. More in [SECURITY.md](SECURITY.md).
 
-## Проверки
+## Checks
 
-Команды одинаковы в PowerShell и в терминале macOS; в Windows вместо `python3` обычно `python`.
+The commands are the same in PowerShell and in a macOS terminal; on Windows use `python` instead of `python3`.
 
 ```sh
 cargo test --locked
@@ -231,32 +282,35 @@ npm run test:ui
 python3 scripts/export-source.py --check
 ```
 
-Дополнительные проверки Electron и синтетических медиа описаны в [CONTRIBUTING.md](CONTRIBUTING.md).
+Additional Electron and synthetic-media checks are described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Подготовка исходников к публикации
+### Preparing sources for publication
 
 ```sh
 python3 scripts/export-source.py --check
 python3 scripts/export-source.py
 ```
 
-Экспорт создаёт новую папку `.publish/Librium` только с разрешёнными исходниками и двумя подготовленными скриншотами документации. В неё не копируются `.git`, локальные базы, сертификаты, трафик, логи, сборки и произвольные снимки экрана. Папка назначения должна быть новой или пустой. Если рабочая Git-история содержит личные данные, публикуй новую историю из чистого экспорта, а не исходный репозиторий.
+The export creates a fresh `.publish/Librium` folder with allowlisted sources and the two prepared documentation screenshots only. It never copies `.git`, local databases, certificates, traffic, logs, builds or arbitrary screenshots. The destination has to be new or empty. If your working Git history contains personal data, publish a fresh history from a clean export rather than the original repository.
 
-## Документация
+## Documentation
 
-- [Архитектура](docs/architecture.md) — проектные заметки; возможности текущей версии перечислены выше.
-- [Сеть](docs/network.md), [протоколы](docs/basics/protocols.md).
-- [TLS](docs/basics/tls-versions.md), [сертификаты](docs/basics/certificates.md), [CA](docs/basics/certificate-authorities.md).
-- [Настройка прокси в Windows](docs/proxy-setup.md), [настройка прокси в macOS](docs/proxy-setup-macos.md), [учебные примеры](docs/practice.md).
+- [Architecture](docs/architecture.md) — design notes; the features of the current version are listed above.
+- [Networking](docs/network.md), [protocols](docs/basics/protocols.md).
+- [TLS](docs/basics/tls-versions.md), [certificates](docs/basics/certificates.md), [certificate authorities](docs/basics/certificate-authorities.md).
+- [Proxy setup on Windows](docs/proxy-setup.md), [proxy setup on macOS](docs/proxy-setup-macos.md), [practice examples](docs/practice.md).
+- [Release process](docs/release.md) — versions, tags, optional signing and notarization, Homebrew tap and Scoop bucket updates.
 
-## Лицензия
+The long-form documents in `docs/` are currently written in Russian; the README, `CONTRIBUTING.md` and `SECURITY.md` are the English entry points. Translations are welcome.
 
-Код Librium распространяется по [MIT License](LICENSE). Можно использовать проект, изменять его и распространять, в том числе в коммерческих продуктах, сохраняя уведомление об авторских правах и текст лицензии.
+## License
 
-Сторонние зависимости и показанные в демонстрационных материалах сторонние изображения сохраняют собственные лицензии и права. Текст MIT: [Open Source Initiative](https://opensource.org/license/mit).
+Librium is distributed under the [MIT License](LICENSE). You may use, modify and redistribute the project, including in commercial products, as long as the copyright notice and the license text are preserved.
 
-## Участие в проекте
+Third-party dependencies and the third-party images shown in demonstration materials keep their own licenses and rights. The MIT text: [Open Source Initiative](https://opensource.org/license/mit).
 
-Нашёл ошибку или придумал улучшение — создай Issue или предложи Pull Request. Для багов укажи версию Librium, шаги воспроизведения и ожидаемый результат. Прикладывай только обезличенные примеры без cookies, токенов и личного трафика.
+## Contributing
 
-Инструкции для разработки и проверок — в [CONTRIBUTING.md](CONTRIBUTING.md), рекомендации по работе с чувствительными данными — в [SECURITY.md](SECURITY.md).
+Found a bug or have an idea — open an issue or send a pull request. For bugs, include the Librium version, the steps to reproduce and the expected result. Attach only anonymized examples, without cookies, tokens or personal traffic.
+
+Development and check instructions are in [CONTRIBUTING.md](CONTRIBUTING.md); guidance on handling sensitive data is in [SECURITY.md](SECURITY.md).

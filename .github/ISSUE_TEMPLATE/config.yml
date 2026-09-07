@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/Daloshka/Librium/discussions
+    about: Ask how to set something up, share a workflow, or float an idea before filing an issue.
+  - name: Security and private data
+    url: https://github.com/Daloshka/Librium/blob/main/SECURITY.md
+    about: How to report a vulnerability privately and what must never be attached to a public issue.

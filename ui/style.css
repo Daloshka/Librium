@@ -21,3 +21,5 @@ header{background:linear-gradient(105deg,#24203c,#18233b 65%,#172a35);border-bot
 .image-preview.actual-size{cursor:grab;touch-action:none;user-select:none}.image-preview.actual-size.dragging{cursor:grabbing}.image-preview img{-webkit-user-drag:none}
 
 .traffic th button{border:0;padding:0;background:transparent;font:inherit;color:inherit;white-space:nowrap;width:100%;text-align:left}.traffic th button:hover{color:#dbc0ff}.traffic th[aria-sort=ascending],.traffic th[aria-sort=descending]{color:#d6b6ff;background:#302d4d}
+
+#lang{font-size:10px;letter-spacing:1px;padding:4px 0;border:1px solid #4b396a;border-radius:5px;color:#c4a9f0;background:#241d3d}#lang:hover{color:#eadcff;background:#3a2c58;border-color:#7a5fa8}.history-foot .disk{color:inherit}

@@ -1,4 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
+// The main process passes its language here, so the renderer starts in the same one.
+const supplied = (process.argv.find(argument => argument.startsWith('--librium-lang=')) || '').slice('--librium-lang='.length);
 contextBridge.exposeInMainWorld('librium', {
   request: (path, method = 'GET') => ipcRenderer.invoke('api', path, method),
   saveCertificate: () => ipcRenderer.invoke('save-ca'),
@@ -12,5 +14,8 @@ contextBridge.exposeInMainWorld('librium', {
   mobileEnable: address => ipcRenderer.invoke('mobile-enable', address),
   mobileDisable: () => ipcRenderer.invoke('mobile-disable'),
   reportError: message => ipcRenderer.invoke('report-error', message),
+  setLanguage: lang => ipcRenderer.invoke('set-language', lang),
+  reload: () => ipcRenderer.invoke('reload-window'),
+  language: supplied === 'ru' || supplied === 'en' ? supplied : '',
   platform: process.platform,
 });

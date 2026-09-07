@@ -6,10 +6,12 @@ const { writeFile } = require('node:fs/promises');
 const http = require('node:http');
 const fs = require('node:fs');
 const { Mobile } = require('./mobile.cjs');
+const i18n = require('./i18n.cjs');
+const t = (key, params) => i18n.t(key, params);
 function portFromEnv(name, fallback, max = 65535) {
   const value = process.env[name];
   if (value === undefined || value === '') return fallback;
-  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max) throw Error(`Неверное значение ${name}=${value}: укажи порт от 1 до ${max}`);
+  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max) throw Error(t('main.badPort', {name, value, max}));
   return Number(value);
 }
 let startupError = null;
@@ -25,7 +27,7 @@ function ensureCore(){
 }
 const mobile = new Mobile({getCertificate: async () => {
   try {const info=JSON.parse(await request('/api/info'));if(!info.phone_lan)throw Error();}
-  catch {throw Error('Нужно обновить Rust-ядро: останови старый Librium и запусти новую сборку.');}
+  catch {throw Error(t('main.coreOutdated'));}
   return request('/api/ca');
 }, corePort: PROXY_PORT, proxyPort: PROXY_PORT, certificatePort: certificatePort(PROXY_PORT), controlPorts: [UI_PORT, PROXY_PORT, certificatePort(PROXY_PORT)]});
 let mobileOperation=Promise.resolve();
@@ -39,21 +41,21 @@ function request(path, method = 'GET', authenticated = true) {
   return new Promise((resolve, reject) => {
     const req = http.request(base + path, { method, headers: authenticated ? {'x-librium-token': token} : {} }, res => {
       const chunks = []; let size = 0;
-      res.on('data', chunk => { size += chunk.length; if (size > 64 * 1024 * 1024) req.destroy(Error('Ответ API слишком большой')); else chunks.push(chunk); });
+      res.on('data', chunk => { size += chunk.length; if (size > 64 * 1024 * 1024) req.destroy(Error(t('main.responseTooLarge'))); else chunks.push(chunk); });
       res.on('end', () => res.statusCode >= 200 && res.statusCode < 300 ? resolve(Buffer.concat(chunks).toString()) : reject(Error(`API: ${res.statusCode}`)));
       res.on('error', reject);
     });
-    req.setTimeout(3000, () => req.destroy(Error('Ядро не отвечает')));
+    req.setTimeout(3000, () => req.destroy(Error(t('main.coreTimeout'))));
     req.on('error', reject); req.end();
   });
 }
 async function connect() {
   const html = await request('/', 'GET', false);
   const match = html.match(/const token\s*=\s*'([a-f0-9-]+)'/);
-  if (!match || !html.includes('Librium')) throw Error(`Порт ${UI_PORT} занят другим приложением`);
+  if (!match || !html.includes('Librium')) throw Error(t('main.portBusy', {port: UI_PORT}));
   token = match[1];
   const rows = JSON.parse(await request('/api/traffic'));
-  if (!Array.isArray(rows)) throw Error('Неверный ответ ядра');
+  if (!Array.isArray(rows)) throw Error(t('main.badCoreResponse'));
   // An already running core may use another proxy port than our environment says: follow it, so the phone relay targets the real proxy.
   const port = JSON.parse(await request('/api/info')).proxy_port;
   if (Number.isInteger(port) && port !== mobile.corePort && !mobile.active) Object.assign(mobile, {corePort: port, proxyPort: port, certificatePort: certificatePort(port), controlPorts: [UI_PORT, port, certificatePort(port)]});
@@ -62,7 +64,7 @@ async function startCore() {
   try { await connect(); return; } catch (error) {
     if (error.code !== 'ECONNREFUSED') throw error;
   }
-  if(process.env.LIBRIUM_ATTACH_ONLY==='1')throw Error('Для проверки нужно запущенное Rust-ядро');
+  if(process.env.LIBRIUM_ATTACH_ONLY==='1')throw Error(t('main.attachOnly'));
   childError='';
   const name = process.platform === 'win32' ? 'librium.exe' : 'librium';
   const binary = app.isPackaged ? join(process.resourcesPath, 'core', name) : join(__dirname, '../target/release', name);
@@ -74,14 +76,14 @@ async function startCore() {
     if (child.exitCode !== null || childError.includes('ENOENT')) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  throw Error(childError || `Не удалось запустить Rust-ядро. Проверь порты ${UI_PORT} и ${PROXY_PORT}.`);
+  throw Error(childError || t('main.coreStartFailed', {ui: UI_PORT, proxy: PROXY_PORT}));
 }
 function validate(event) {
-  if (!window || event.sender !== window.webContents || event.senderFrame?.url !== page) throw Error('Недопустимый источник');
+  if (!window || event.sender !== window.webContents || event.senderFrame?.url !== page) throw Error(t('main.badSource'));
 }
 ipcMain.handle('api', async (event, path, method) => {
   validate(event);
-  if (!(method === 'GET' && /^(?:info|traffic(?:\/\d+(?:\/ws(?:\?before=\d+)?)?)?|traffic-page\?q=[A-Za-z0-9%_.!~*'()-]+)$/.test(path)) && !(method === 'DELETE' && path === 'traffic')) throw Error('Недопустимая операция');
+  if (!(method === 'GET' && /^(?:info|traffic(?:\/\d+(?:\/ws(?:\?before=\d+)?)?)?|traffic-page\?q=[A-Za-z0-9%_.!~*'()-]+)$/.test(path)) && !(method === 'DELETE' && path === 'traffic')) throw Error(t('main.badOperation'));
   try { const data = await request('/api/' + path, method); return data ? JSON.parse(data) : null; }
   catch (error) {
     if (error.message === 'API: 401' || error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET') {
@@ -90,22 +92,22 @@ ipcMain.handle('api', async (event, path, method) => {
     throw error;
   }
 });
-ipcMain.handle('copy', (event, text) => { validate(event); if (typeof text !== 'string' || text.length > 500000) throw Error('Недопустимый текст'); clipboard.writeText(text); });
+ipcMain.handle('copy', (event, text) => { validate(event); if (typeof text !== 'string' || text.length > 500000) throw Error(t('main.badText')); clipboard.writeText(text); });
 ipcMain.handle('filter-sessions-load',event=>{validate(event);return require('./filter-store.cjs').read(join(app.getPath('userData'),'filter-sessions.json'));});
 ipcMain.handle('filter-sessions-save',(event,value)=>{validate(event);require('./filter-store.cjs').write(join(app.getPath('userData'),'filter-sessions.json'),value);});
 ipcMain.handle('save-media',async(event,id,side)=>{
-  validate(event);if(!Number.isSafeInteger(id)||id<1||!['request','response'].includes(side))throw Error('Неверный запрос');
+  validate(event);if(!Number.isSafeInteger(id)||id<1||!['request','response'].includes(side))throw Error(t('main.badRequest'));
   const detail=JSON.parse(await request('/api/traffic/'+id));
   const media=require('./media-save.cjs').mediaFile(detail,side);
-  const result=await dialog.showSaveDialog(window,{title:'Скачать файл',defaultPath:join(app.getPath('downloads'),media.name)});
+  const result=await dialog.showSaveDialog(window,{title:t('main.saveFile'),defaultPath:join(app.getPath('downloads'),media.name)});
   if(result.canceled)return false;
   await writeFile(result.filePath,media.bytes);return true;
 });
 ipcMain.handle('open-url', (event, value) => {
   validate(event);
-  if (typeof value !== 'string' || value.length > 16384) throw Error('Недопустимый URL');
+  if (typeof value !== 'string' || value.length > 16384) throw Error(t('main.badUrl'));
   const url = new URL(value);
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw Error('Разрешены только HTTP и HTTPS адреса');
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw Error(t('main.httpOnly'));
   return shell.openExternal(url.href);
 });
 // A separate Chromium profile that talks to Librium directly: VPN tunnels and other clients ignore the system proxy, an explicit --proxy-server does not.
@@ -120,7 +122,7 @@ function browserCandidates() {
 }
 function openBrowser() {
   const [browser] = browserCandidates();
-  if (!browser) throw Error(`Не найден Chrome, Chromium, Edge или Brave. Укажи прокси 127.0.0.1:${mobile.corePort} в настройках браузера вручную.`);
+  if (!browser) throw Error(t('main.noBrowser', {port: mobile.corePort}));
   const profile = join(app.getPath('userData'), 'chrome-profile');
   const args = [...browser.prefix, `--proxy-server=127.0.0.1:${mobile.corePort}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', 'http://example.com/'];
   const child = spawn(browser.command, args, {detached: true, stdio: 'ignore', windowsHide: true});
@@ -130,6 +132,9 @@ function openBrowser() {
 }
 ipcMain.handle('open-browser', event => {validate(event);return openBrowser();});
 ipcMain.handle('mobile-status', event => {validate(event);return mobile.status();});
+ipcMain.handle('set-language',(event,lang)=>{validate(event);if(lang==='ru'||lang==='en')i18n.set(lang);});
+// The renderer cannot reload itself: will-navigate is blocked above, so the language switch asks the main process.
+ipcMain.handle('reload-window',event=>{validate(event);window.webContents.reload();});
 ipcMain.handle('report-error',(event,message)=>{validate(event);if(typeof message==='string')logError(message);});
 ipcMain.handle('mobile-enable', (event,address) => {validate(event);const action=mobileOperation.then(()=>mobile.enable(address));mobileOperation=action.catch(()=>{});return action;});
 ipcMain.handle('mobile-disable', event => {validate(event);const action=mobileOperation.then(()=>mobile.disable());mobileOperation=action.catch(()=>{});return action;});
@@ -149,15 +154,15 @@ else {
       session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
       if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(join(__dirname, 'assets', 'icon.png'));
       window = new BrowserWindow({ width: 1540, height: 980, minWidth: 1040, minHeight: 680, title: 'Librium', icon: join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'), backgroundColor: '#101216', autoHideMenuBar: true,
-        webPreferences: { preload: join(__dirname,'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, spellcheck: false } });
+        webPreferences: { preload: join(__dirname,'preload.cjs'), additionalArguments: ['--librium-lang='+i18n.lang], nodeIntegration: false, contextIsolation: true, sandbox: true, spellcheck: false } });
       window.webContents.setWindowOpenHandler(() => ({action:'deny'}));
       window.webContents.on('render-process-gone',(_event,details)=>logError('Renderer stopped: '+JSON.stringify(details)));
       window.webContents.on('console-message',(_event,level,message)=>{if(level>=2)logError('Renderer: '+message);});
       window.webContents.on('will-navigate', event => event.preventDefault());
       await window.loadFile(join(__dirname, '../ui/index.html'));
       const lanArgument=process.argv.find(argument=>argument.startsWith('--phone-lan='));
-      if(lanArgument){try{await mobile.enable(lanArgument.slice('--phone-lan='.length));}catch(error){logError(error.message);dialog.showErrorBox('Подключение телефона',error.message);}}
-    } catch(error) { dialog.showErrorBox('Librium — ошибка запуска', error.message); app.quit(); }
+      if(lanArgument){try{await mobile.enable(lanArgument.slice('--phone-lan='.length));}catch(error){logError(error.message);dialog.showErrorBox(t('main.phoneTitle'),error.message);}}
+    } catch(error) { dialog.showErrorBox(t('main.startupTitle'), error.message); app.quit(); }
   });
 }
 app.on('window-all-closed', () => app.quit());

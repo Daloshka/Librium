@@ -1,14 +1,16 @@
 (function(root){
-  const fields={host:'Хост',path:'Путь',url:'URL',method:'Метод',status:'Статус',id:'ID',size:'Размер (байт)'};
-  const operators={contains:'содержит',not_contains:'не содержит',eq:'равно',ne:'не равно',gte:'≥',lte:'≤'};
+  const i18n=typeof module!=='undefined'?require('./i18n.js'):root.LibriumI18n;
+  const t=key=>i18n?i18n.t(key):key;
+  const fields={host:t('field.host'),path:t('field.path'),url:t('field.url'),method:t('field.method'),status:t('field.status'),id:t('field.id'),size:t('field.size')};
+  const operators={contains:t('op.contains'),not_contains:t('op.not_contains'),eq:t('op.eq'),ne:t('op.ne'),gte:t('op.gte'),lte:t('op.lte')};
   const numeric=field=>['status','id','size'].includes(field);
   function value(row,field){if(field==='host'||field==='path'){try{const url=new URL(row.url);return field==='host'?url.hostname:url.pathname+url.search;}catch{return '';}}return row[field];}
   function validate(rule){
-    if(!fields[rule.field]||!operators[rule.op])return 'Выбери поле и условие.';
-    if(!String(rule.value).trim())return 'Введи значение фильтра.';
-    if(numeric(rule.field)&&(!['eq','ne','gte','lte'].includes(rule.op)||!/^\d+$/.test(String(rule.value))))return 'Нужно целое неотрицательное число.';
-    if(!numeric(rule.field)&&['gte','lte'].includes(rule.op))return 'Для текста выбери сравнение или поиск подстроки.';
-    if(rule.field==='status'&&(Number(rule.value)<100||Number(rule.value)>599))return 'HTTP-статус должен быть от 100 до 599.';
+    if(!fields[rule.field]||!operators[rule.op])return t('rule.field');
+    if(!String(rule.value).trim())return t('rule.value');
+    if(numeric(rule.field)&&(!['eq','ne','gte','lte'].includes(rule.op)||!/^\d+$/.test(String(rule.value))))return t('rule.integer');
+    if(!numeric(rule.field)&&['gte','lte'].includes(rule.op))return t('rule.textOperator');
+    if(rule.field==='status'&&(Number(rule.value)<100||Number(rule.value)>599))return t('rule.statusRange');
     return '';
   }
   function matches(row,rules){return rules.every(rule=>{

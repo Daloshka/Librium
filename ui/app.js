@@ -1,5 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const t = (key, params) => LibriumI18n.t(key, params);
 let rows = [], selected = null, detail = null, paused = false, detailSignature = '', rowsSignature = '', wrapped = true;
 let wsData=null,wsBefore=null,wsSignature="";
 const modes = { request: 'http', response: 'pretty' };
@@ -38,9 +39,9 @@ function renderSessions(){
  $('filter-session').replaceChildren();for(const session of sessionState.sessions){const option=el('option',session.name);option.value=session.id;$('filter-session').append(option);}$('filter-session').value=sessionState.activeId;
 }
 async function persistSessions(){
- const generation=++sessionSaveGeneration;$('session-state').textContent='Сохранение…';
- try{const value=JSON.parse(JSON.stringify(sessionState));if(window.librium?.saveFilterSessions)await window.librium.saveFilterSessions(value);else localStorage.setItem('librium-filter-sessions-v1',JSON.stringify(value));if(generation===sessionSaveGeneration)$('session-state').textContent='Сохранено';}
- catch(error){$('session-state').textContent='Не сохранено';showError(error);}
+ const generation=++sessionSaveGeneration;$('session-state').textContent=t('session.saving');
+ try{const value=JSON.parse(JSON.stringify(sessionState));if(window.librium?.saveFilterSessions)await window.librium.saveFilterSessions(value);else localStorage.setItem('librium-filter-sessions-v1',JSON.stringify(value));if(generation===sessionSaveGeneration)$('session-state').textContent=t('session.saved');}
+ catch(error){$('session-state').textContent=t('session.notSaved');showError(error);}
 }
 function saveActiveSession(){if(!sessionState)return;Object.assign(sessionState.sessions.find(s=>s.id===sessionState.activeId),currentFilters());persistSessions();}
 function applySession(){
@@ -49,13 +50,16 @@ function applySession(){
 }
 async function initSessions(){
  const saved=window.librium?.loadFilterSessions?await window.librium.loadFilterSessions():JSON.parse(localStorage.getItem('librium-filter-sessions-v1')||'null');
- sessionState=saved||{version:1,activeId:'default',sessions:[{id:'default',name:'Основная',...emptyFilters()}]};applySession();
- $('session-state').textContent='Автосохранение';
+ sessionState=saved||{version:1,activeId:'default',sessions:[{id:'default',name:t('session.default'),...emptyFilters()}]};applySession();
+ $('session-state').textContent=t('session.autosave');
 }
 function el(tag, text, cls) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; }
 function bytes(n) { if (n < 1024) return `${n} B`; let value = n / 1024, unit = 0; while (value >= 1024 && unit < 2) { value /= 1024; unit++; } return `${value.toFixed(value < 100 ? 1 : 0)} ${['KB', 'MB', 'GB'][unit]}`; }
-function clock(ms) { return ms ? new Date(ms).toLocaleTimeString('ru-RU') : ''; }
-function stamp(ms) { return ms ? new Date(ms).toLocaleString('ru-RU') : ''; }
+// The core stores its notices in English; show them in the active language when known.
+const CORE_NOTICES={'Connection interrupted when Librium stopped':'core.stopped','Connection closed when Librium restarted':'core.restarted','Connection ended when Librium was updated':'core.updated','Transfer interrupted before the full body arrived':'core.truncated'};
+function coreText(text){return CORE_NOTICES[text]?t(CORE_NOTICES[text]):text;}
+function clock(ms) { return ms ? new Date(ms).toLocaleTimeString(LibriumI18n.locale) : ''; }
+function stamp(ms) { return ms ? new Date(ms).toLocaleString(LibriumI18n.locale) : ''; }
 function toast(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 2400); }
 let lastReportedError='';
 function showError(error) { $('error').hidden = !error; $('error').textContent = error?.message || '';if(error && error.message!==lastReportedError){lastReportedError=error.message;window.librium?.reportError?.(error.stack||error.message).catch(()=>{});} }
@@ -77,10 +81,8 @@ function renderConnectionInfo(){
   // The launcher needs Electron; the plain browser UI at the core's port has no way to spawn processes.
   for(const id of ['browser','browser-hint'])$(id).hidden=!window.librium?.openBrowser;
   for(const id of ['proxy-address','dialog-proxy','empty-proxy']){const node=$(id);if(node)node.textContent=proxyAddress;}
-  $('ca-install').textContent=platform==='win32'?'Скачай CA и установи его в доверенные корневые сертификаты текущего пользователя.'
-    :platform==='darwin'?'Скачай CA и открой файл в «Связке ключей» (Keychain Access): найди Librium Local CA и в свойствах доверия выбери «Всегда доверять». Или в Терминале: security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db <путь к ca.crt>'
-    :'Скачай CA и добавь его в хранилище сертификатов системы или браузера.';
-  $('ca-check-label').textContent=platform==='win32'?'Проверка из PowerShell:':'Проверка из терминала:';
+  $('ca-install').textContent=t(platform==='win32'?'https.caWindows':platform==='darwin'?'https.caMac':'https.caOther');
+  $('ca-check-label').textContent=t(platform==='win32'?'https.checkPowerShell':'https.checkTerminal');
   $('ca-check').textContent=platform==='win32'?`curl.exe --ssl-revoke-best-effort --proxy http://${proxyAddress} --cacert "${caPath()}" https://example.com`:`curl --proxy http://${proxyAddress} --cacert "${caPath()}" https://example.com`;
   window.mobileFirewallHint?.();
 }
@@ -91,7 +93,7 @@ async function loadInfo(){
 function splitUrl(url) { try { const u = new URL(url); return { host: u.host, path: u.pathname + u.search }; } catch { return { host: url, path: '/' }; } }
 function renderSort(){
  document.querySelectorAll('[data-sort]').forEach(button=>{const active=button.dataset.sort===sortField;button.textContent=button.dataset.label+(active?(sortOrder==='asc'?' ↑':' ↓'):'');button.closest('th').setAttribute('aria-sort',active?(sortOrder==='asc'?'ascending':'descending'):'none');});
- $('sort-description').textContent=sortField==='id'?(sortOrder==='desc'?'Новые сверху ↓':'Старые сверху ↑'):'Сортировка: '+document.querySelector(`[data-sort="${sortField}"]`).dataset.label;
+ $('sort-description').textContent=sortField==='id'?t(sortOrder==='desc'?'sort.newest':'sort.oldest'):t('sort.by',{name:document.querySelector(`[data-sort="${sortField}"]`).dataset.label});
 }
 function renderRows() {
   const query = $('filter').value.toLowerCase(), method = $('method').value, status = $('status').value;
@@ -116,21 +118,21 @@ function renderRows() {
   $('rows').replaceChildren(fragment);
   if (focusedId) $('rows').querySelector(`[data-id="${focusedId}"]`)?.focus({preventScroll:true});
   $('count').textContent = `${pageMatched} / ${pageTotal}`;
-  $('page-label').textContent = pageMatched ? `${pageOffset+1}–${pageOffset+rows.length} из ${pageMatched}` : '0 запросов';
+  $('page-label').textContent = pageMatched ? t('page.range',{from:pageOffset+1,to:pageOffset+rows.length,total:pageMatched}) : t('page.none');
   $('page-prev').disabled=pageOffset===0;
   $('page-next').disabled=pageOffset+PAGE_SIZE>=pageMatched;
   $('empty').hidden = shown.length > 0;
-  if (rows.length && !shown.length) $('empty').replaceChildren(el('h3', 'Ничего не найдено'), el('p', 'Измени фильтр, чтобы увидеть запросы.'));
-  else if (!rows.length) $('empty').replaceChildren(el('div', '↔', 'empty-icon'), el('h3', 'Ожидание трафика'), el('p', `Прокси ${proxyAddress} · Настройка HTTPS слева внизу.`));
+  if (rows.length && !shown.length) $('empty').replaceChildren(el('h3', t('empty.nothing')), el('p', t('empty.changeFilter')));
+  else if (!rows.length) $('empty').replaceChildren(el('div', '↔', 'empty-icon'), el('h3', t('empty.waiting')), el('p', t('empty.proxyHint',{proxy:proxyAddress})));
 }
 for (const side of ['request', 'response']) {
   const pane = el('section', undefined, 'pane'), title = el('div', undefined, 'pane-title');
   const heading = el('h2'); heading.append(el('span', side === 'request' ? '↗' : '↙'), document.createTextNode(side === 'request' ? 'Request' : 'Response'));
-  const state = el('span', '', 'pane-state'), copy = el('button', 'Копировать');
-  copy.onclick = async () => { try { const text = paneNodes[side].copyText || ''; if (window.librium) await window.librium.copy(text); else await navigator.clipboard.writeText(text); toast('Скопировано'); } catch(e) { showError(e); } };
+  const state = el('span', '', 'pane-state'), copy = el('button', t('pane.copy'));
+  copy.onclick = async () => { try { const text = paneNodes[side].copyText || ''; if (window.librium) await window.librium.copy(text); else await navigator.clipboard.writeText(text); toast(t('pane.copied')); } catch(e) { showError(e); } };
   title.append(heading, state, copy);
   const tabs = el('div', undefined, 'tabs');
-  for (const [key,label] of [['http','HTTP'],['headers','Заголовки'],['pretty','Pretty'],['text','Тело'],['hex','Hex'],['image','Картинка'],['audio','Аудио'],['ws','Сообщения WS']]) {
+  for (const [key,label] of [['http','HTTP'],['headers',t('tab.headers')],['pretty','Pretty'],['text',t('tab.text')],['hex','Hex'],['image',t('tab.image')],['audio',t('tab.audio')],['ws',t('tab.ws')]]) {
     const button = el('button', label); button.dataset.mode = key;
     button.onclick = () => { modes[side] = key; renderDetail(); }; tabs.append(button);
   }
@@ -160,7 +162,7 @@ function codeLines(text, type) {
     else content.append(highlighted(lines[index]));
     row.append(el('span', index + 1, 'line-number'), content); fragment.append(row);
   }
-  if (lines.length > 3000) fragment.append(el('div', 'Показаны первые 3000 строк. Копирование содержит весь предпросмотр.', 'notice'));
+  if (lines.length > 3000) fragment.append(el('div', t('body.lineLimit'), 'notice'));
   return fragment;
 }
 function hexView(base64) {
@@ -171,34 +173,34 @@ function hexView(base64) {
 async function bodyText(payload) {
   const encoding = payload.headers.find(([name]) => name.toLowerCase() === 'content-encoding')?.[1]?.toLowerCase();
   if (!encoding || encoding === 'identity') return {text:payload.text, notice:''};
-  if (payload.truncated || !payload.complete) return {text:'Сжатое тело пока неполное. Байты доступны во вкладке Hex.', notice:`Content-Encoding: ${encoding}`};
+  if (payload.truncated || !payload.complete) return {text:t('body.compressedIncomplete'), notice:`Content-Encoding: ${encoding}`};
   try {
     const raw = Uint8Array.from(atob(payload.base64), c => c.charCodeAt(0));
     const reader = new Blob([raw]).stream().pipeThrough(new DecompressionStream(encoding === 'br' ? 'brotli' : encoding)).getReader();
     const decoder = new TextDecoder(); let text = '', size = 0, capped = false;
     try { while (true) { const {value, done} = await reader.read(); if (done) break; const part = value.subarray(0, Math.max(0, 65536-size)); text += decoder.decode(part,{stream:true}); size += part.length; if (size >= 65536) { capped = true; await reader.cancel(); break; } } text += decoder.decode(); } finally { reader.releaseLock(); }
-    return {text, notice:`Распаковано: ${encoding}${capped ? ' · первые 64 КиБ' : ''}. Hex — исходные байты.`};
-  } catch { return {text:'Не удалось распаковать тело. Исходные байты доступны во вкладке Hex.', notice:`Content-Encoding: ${encoding}`}; }
+    return {text, notice:t('body.decompressed',{encoding,capped:capped ? t('body.first64') : ''})};
+  } catch { return {text:t('body.decompressFailed'), notice:`Content-Encoding: ${encoding}`}; }
 }
 async function openRedirect(current, target) {
   const query={query:'',method:'',status:'',offset:0,limit:1000,rules:[{field:'host',op:'eq',value:target.hostname},{field:'path',op:'eq',value:target.pathname+target.search},{field:'id',op:'gte',value:String(current.summary.id+1)}]};
   const page=await api('traffic-page?q='+encodeURIComponent(JSON.stringify(query)));
   if(selected!==current.summary.id)return;
   const match=page.rows.filter(row=>{try{return new URL(row.url).href===target.href;}catch{return false;}}).sort((a,b)=>a.id-b.id)[0];
-  if(match)await choose(match.id);else toast('Запрос по Location не найден в сохранённой истории.');
+  if(match)await choose(match.id);else toast(t('redirect.notFound'));
 }
 async function renderDetail() {
   const version = ++renderVersion;
   if (!detail) {
-    for (const [side,node] of Object.entries(paneNodes)) { releaseImage(side); node.audioKey=null; node.content.replaceChildren(el('div', 'Выбери запрос для просмотра', 'empty')); node.state.textContent = ''; node.notice.hidden = true; node.copyText = ''; }
+    for (const [side,node] of Object.entries(paneNodes)) { releaseImage(side); node.audioKey=null; node.content.replaceChildren(el('div', t('pane.empty'), 'empty')); node.state.textContent = ''; node.notice.hidden = true; node.copyText = ''; }
     return;
   }
   const current = detail;
-  const selectionUrl = el('button', current.summary.url, 'selection-url'); selectionUrl.title = 'Копировать URL: '+current.summary.url;
-  selectionUrl.setAttribute('aria-label','Копировать полный URL');
-  selectionUrl.onclick=async()=>{try{if(window.librium)await window.librium.copy(current.summary.url);else await navigator.clipboard.writeText(current.summary.url);toast('URL скопирован');}catch(error){showError(error);}};
-  const open=el('button','↗','open-url');open.title='Открыть в браузере';open.setAttribute('aria-label','Открыть URL в браузере');
-  open.onclick=async()=>{try{const url=new URL(current.summary.url);if(!['http:','https:'].includes(url.protocol))throw Error('Разрешены только HTTP и HTTPS адреса');if(window.librium)await window.librium.openUrl(url.href);else window.open(url.href,'_blank','noopener,noreferrer');}catch(error){showError(error);}};
+  const selectionUrl = el('button', current.summary.url, 'selection-url'); selectionUrl.title = t('inspect.copyUrl',{url:current.summary.url});
+  selectionUrl.setAttribute('aria-label',t('inspect.copyUrlAria'));
+  selectionUrl.onclick=async()=>{try{if(window.librium)await window.librium.copy(current.summary.url);else await navigator.clipboard.writeText(current.summary.url);toast(t('inspect.urlCopied'));}catch(error){showError(error);}};
+  const open=el('button','↗','open-url');open.title=t('inspect.openUrl');open.setAttribute('aria-label',t('inspect.openUrlAria'));
+  open.onclick=async()=>{try{const url=new URL(current.summary.url);if(!['http:','https:'].includes(url.protocol))throw Error(t('main.httpOnly'));if(window.librium)await window.librium.openUrl(url.href);else window.open(url.href,'_blank','noopener,noreferrer');}catch(error){showError(error);}};
   $('selection').replaceChildren(el('span', '#' + current.summary.id, 'selection-id'),el('span',current.summary.method,'selection-method'),open, selectionUrl, el('span', `${current.summary.time ? stamp(current.summary.time) + ' · ' : ''}${current.summary.status ?? '…'} · ${current.summary.elapsed_ms ?? '…'} ms`, 'selection-time'));
   let matches = 0;
   await Promise.all(['request','response'].map(async side => {
@@ -212,32 +214,32 @@ async function renderDetail() {
     const decoded = mode === 'headers' || mode === 'hex' || mode === 'image' || mode === 'audio' || mode === 'ws' ? {text:'',notice:''} : await bodyText(payload);
     if (version !== renderVersion) return;
     node.tabs.querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
-    node.state.textContent = current.summary.status===101?'WebSocket · '+(wsData?.state==='open'?'открыт':wsData?.state==='closed'?'закрыт':'архив'):`${bytes(payload.size)}${payload.complete ? '' : ' · поток / ожидание'}`;
-    const notices = [current.summary.status===101?null:current.summary.error, mode === 'hex' && payload.base64.length > 87384 ? 'Hex: показаны первые 64 КиБ.' : '', payload.truncated ? 'Тело сохранено частично. Для картинок и аудио лимит 32 МиБ, для остальных тел — 64 КиБ.' : '', decoded.notice].filter(Boolean);
+    node.state.textContent = current.summary.status===101?'WebSocket · '+t(wsData?.state==='open'?'ws.open':wsData?.state==='closed'?'ws.closed':'ws.archived'):`${bytes(payload.size)}${payload.complete ? '' : ' · '+t('pane.streaming')}`;
+    const notices = [current.summary.status===101?null:coreText(current.summary.error), mode === 'hex' && payload.base64.length > 87384 ? t('body.hexLimit') : '', payload.truncated ? t('body.truncated') : '', decoded.notice].filter(Boolean);
     node.notice.hidden = !notices.length; node.notice.textContent = notices.join(' · ');
     if(side==='response' && [301,302,303,307,308].includes(current.summary.status)) {
       const location=payload.headers.find(([k])=>k.toLowerCase()==='location')?.[1];
       if(location)try{const target=new URL(location,current.summary.url);if(['http:','https:'].includes(target.protocol)){
-        const follow=el('button','Открыть запрос по Location','redirect-open');follow.onclick=()=>openRedirect(current,target).catch(showError);
-        node.notice.hidden=false;node.notice.append(el('span',` Перенаправление ${current.summary.status} → ${target.href} `),follow);
+        const follow=el('button',t('redirect.open'),'redirect-open');follow.onclick=()=>openRedirect(current,target).catch(showError);
+        node.notice.hidden=false;node.notice.append(el('span',t('redirect.notice',{status:current.summary.status,url:target.href})),follow);
       }}catch{}
     }
     let text = decoded.text, type = '';
-    if (mode === 'http') { text = (side === 'request' ? `${current.summary.method} ${current.summary.url}` : `Status: ${current.summary.status ?? 'Ожидание'}`) + '\n' + payload.headers.map(([k,v]) => `${k}: ${v}`).join('\n') + '\n\n' + decoded.text; type = 'http'; }
+    if (mode === 'http') { text = (side === 'request' ? `${current.summary.method} ${current.summary.url}` : `Status: ${current.summary.status ?? t('toolbar.pending')}`) + '\n' + payload.headers.map(([k,v]) => `${k}: ${v}`).join('\n') + '\n\n' + decoded.text; type = 'http'; }
     if (mode === 'pretty') { try { text = JSON.stringify(JSON.parse(decoded.text),null,2); type = 'json'; } catch { /* Plain text and HTML remain inert text. */ } }
     if (mode === 'hex') text = hexView(payload.base64);
     const scroll = node.content.scrollTop, left = node.content.scrollLeft;
     if(mode==='ws') {
       const messages=(wsData?.messages||[]).filter(m=>m.direction===(side==='request'?'sent':'received'));
-      text=messages.map(m=>`[${new Date(m.time).toLocaleTimeString()}.${String(m.time%1000).padStart(3,'0')}] ${m.direction==='sent'?'→':'←'} ${m.kind} · ${bytes(m.size)}${m.truncated?' · первые 64 КиБ':''}\n${m.kind==='BINARY'?hexView(m.base64):m.text}`).join('\n\n');
-      node.content.replaceChildren(text?codeLines(text,''):el('div',wsData?.state==='not_recorded'?'Этот WebSocket записан старой версией: сообщений нет. Переподключи клиент.':'Сообщений в этом направлении пока нет.','empty'));
-      node.notice.hidden=false;node.notice.textContent=`Всего сообщений: ${wsData?.total||0}${wsData?.error?' · '+wsData.error:''} `;
-      if(wsData?.older){const older=el('button','Раньше');older.onclick=()=>{wsBefore=wsData.messages[0].id;loadWs().catch(showError);};node.notice.append(older);}
-      if(wsBefore){const live=el('button','К новым');live.onclick=()=>{wsBefore=null;loadWs().catch(showError);};node.notice.append(live);}
+      text=messages.map(m=>`[${new Date(m.time).toLocaleTimeString(LibriumI18n.locale)}.${String(m.time%1000).padStart(3,'0')}] ${m.direction==='sent'?'→':'←'} ${m.kind} · ${bytes(m.size)}${m.truncated?t('body.first64'):''}\n${m.kind==='BINARY'?hexView(m.base64):m.text}`).join('\n\n');
+      node.content.replaceChildren(text?codeLines(text,''):el('div',t(wsData?.state==='not_recorded'?'ws.notRecorded':'ws.noMessages'),'empty'));
+      node.notice.hidden=false;node.notice.textContent=t('ws.total',{count:wsData?.total||0})+(wsData?.error?' · '+coreText(wsData.error):'')+' ';
+      if(wsData?.older){const older=el('button',t('ws.older'));older.onclick=()=>{wsBefore=wsData.messages[0].id;loadWs().catch(showError);};node.notice.append(older);}
+      if(wsBefore){const live=el('button',t('page.live'));live.onclick=()=>{wsBefore=null;loadWs().catch(showError);};node.notice.append(live);}
     } else if (mode === 'image' || mode === 'audio') {
       const mime=mode==='audio'?audioType(payload,current.summary.url):imageType(payload,current.summary.url);
       if(!mime || payload.truncated || !payload.complete) {
-        node.content.replaceChildren(el('div',payload.truncated?'Медиа сохранено не целиком. Повтори запрос после обновления Librium.':!payload.complete?'Загрузка медиа…':'Формат медиа не поддерживается.','empty'));
+        node.content.replaceChildren(el('div',t(payload.truncated?'media.partial':!payload.complete?'media.loading':'media.unsupported'),'empty'));
       } else {
         try {
           let raw=Uint8Array.from(atob(payload.base64),c=>c.charCodeAt(0));
@@ -245,23 +247,23 @@ async function renderDetail() {
           if(encoding && encoding!=='identity') {
             const reader=new Blob([raw]).stream().pipeThrough(new DecompressionStream(encoding==='br'?'brotli':encoding)).getReader();
             const chunks=[];let size=0;
-            try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>32*1024*1024){await reader.cancel();throw Error('Распакованное медиа больше 32 МиБ');}chunks.push(part.value);}}finally{reader.releaseLock();}
+            try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>32*1024*1024){await reader.cancel();throw Error(t('media.tooLarge'));}chunks.push(part.value);}}finally{reader.releaseLock();}
             raw=new Uint8Array(await new Blob(chunks).arrayBuffer());
           }
           if(version!==renderVersion)return;
-          const download=el('button','↓ Скачать','media-download');
-          download.onclick=async()=>{try{if(window.librium){if(await window.librium.saveMedia(current.summary.id,side))toast('Файл сохранён');}else{const a=el('a');a.href=imageUrls[side];a.download=decodeURIComponent(new URL(current.summary.url).pathname.split('/').pop())||'media';a.click();}}catch(error){showError(error);}};
+          const download=el('button',t('media.download'),'media-download');
+          download.onclick=async()=>{try{if(window.librium){if(await window.librium.saveMedia(current.summary.id,side))toast(t('media.saved'));}else{const a=el('a');a.href=imageUrls[side];a.download=decodeURIComponent(new URL(current.summary.url).pathname.split('/').pop())||'media';a.click();}}catch(error){showError(error);}};
           if(mode==='audio') {
             const player=el('audio'), info=el('div',`${mime} · ${bytes(payload.size)}`,'image-info'), box=el('div',undefined,'audio-preview');
-            player.controls=true;player.preload='metadata';player.setAttribute('aria-label','Воспроизвести аудио ответа');
-            player.onerror=()=>{info.textContent='Не удалось воспроизвести аудио: неподдерживаемый кодек или неполное тело.';};
+            player.controls=true;player.preload='metadata';player.setAttribute('aria-label',t('media.audioAria'));
+            player.onerror=()=>{info.textContent=t('media.audioFailed');};
             box.append(player,info,download);node.content.replaceChildren(box);
             imageUrls[side]=URL.createObjectURL(new Blob([raw],{type:mime}));player.src=imageUrls[side];node.audioKey=audioKey;
           } else {
-          const img=el('img'), info=el('div','Загрузка…','image-info'), tools=el('div',undefined,'image-tools'), zoom=el('button','Масштаб 1:1');
-          img.alt='Ответ '+current.summary.url;
+          const img=el('img'), info=el('div',t('inspect.loading'),'image-info'), tools=el('div',undefined,'image-tools'), zoom=el('button',t('media.actualSize'));
+          img.alt=t('media.imageAlt',{url:current.summary.url});
           img.onload=()=>{info.textContent=`${img.naturalWidth} × ${img.naturalHeight} · ${bytes(payload.size)}`;};
-          img.onerror=()=>{info.textContent='Не удалось декодировать картинку. Проверь целостность тела во вкладке Hex.';};
+          img.onerror=()=>{info.textContent=t('media.imageFailed');};
           const box=el('div',undefined,'image-preview');box.append(img);
           img.draggable=false;let drag=null;
           box.onpointerdown=event=>{if(!box.classList.contains('actual-size')||event.button!==0)return;drag={x:event.clientX,y:event.clientY,left:node.content.scrollLeft,top:node.content.scrollTop,pointer:event.pointerId};box.setPointerCapture(event.pointerId);box.classList.add('dragging');event.preventDefault();};
@@ -269,7 +271,7 @@ async function renderDetail() {
           const stopDrag=()=>{drag=null;box.classList.remove('dragging');};
           box.onpointerup=event=>{if(box.hasPointerCapture(event.pointerId))box.releasePointerCapture(event.pointerId);stopDrag();};box.onpointercancel=stopDrag;box.onlostpointercapture=stopDrag;
 
-          zoom.onclick=()=>{const actual=box.classList.toggle('actual-size');zoom.textContent=actual?'Вписать':'Масштаб 1:1';if(!actual){node.content.scrollTop=0;node.content.scrollLeft=0;stopDrag();}};
+          zoom.onclick=()=>{const actual=box.classList.toggle('actual-size');zoom.textContent=t(actual?'media.fit':'media.actualSize');if(!actual){node.content.scrollTop=0;node.content.scrollLeft=0;stopDrag();}};
           tools.append(info,zoom,download);node.content.replaceChildren(tools,box);
           imageUrls[side]=URL.createObjectURL(new Blob([raw],{type:mime}));img.src=imageUrls[side];
           }
@@ -278,13 +280,13 @@ async function renderDetail() {
     } else if (mode === 'headers') {
       const table = el('table', undefined, 'headers-table');
       for (const [key,value] of payload.headers) { const row = el('tr'), k = el('td'), v = el('td'); k.append(highlighted(key)); v.append(highlighted(value)); row.append(k,v); table.append(row); }
-      text = payload.headers.map(([k,v]) => `${k}: ${v}`).join('\n'); node.content.replaceChildren(payload.headers.length ? table : el('div', 'Нет заголовков', 'empty'));
-    } else node.content.replaceChildren(text ? codeLines(text,type) : el('div', payload.complete ? 'Тело отсутствует' : 'Ожидание данных…', 'empty'));
+      text = payload.headers.map(([k,v]) => `${k}: ${v}`).join('\n'); node.content.replaceChildren(payload.headers.length ? table : el('div', t('pane.noHeaders'), 'empty'));
+    } else node.content.replaceChildren(text ? codeLines(text,type) : el('div', t(payload.complete ? 'pane.noBody' : 'pane.waitingData'), 'empty'));
     node.copyText = text;
     node.content.scrollTop = scroll; node.content.scrollLeft = left;
     const query = $('find').value.toLowerCase(); if (query) matches += text.toLowerCase().split(query).length-1;
   }));
-  if (version === renderVersion) $('matches').textContent = $('find').value ? `${matches} совп.` : '';
+  if (version === renderVersion) $('matches').textContent = $('find').value ? t(matches===1?'inspect.match':'inspect.matches',{count:matches}) : '';
 }
 async function loadWs(){
  if(selected===null||detail?.summary.status!==101)return;
@@ -298,49 +300,49 @@ async function loadDetail() {
   const id = selected;
   if(detail?.summary.id===id && detail.request.complete && detail.response.complete)return;
   try { const data = await api('traffic/' + id); if (selected !== id) return; const signature = JSON.stringify(data); if (signature !== detailSignature) { if(!detail){modes.request=data.summary.status===101?'ws':'http';modes.response=data.summary.status===101?'ws':imageType(data.response,data.summary.url)?'image':audioType(data.response,data.summary.url)?'audio':'pretty';} detail = data; detailSignature = signature; await renderDetail(); } }
-  catch (error) { if (selected !== id) return; if (error.message.includes('404')) { detail = null; detailSignature = ''; await renderDetail(); $('selection').replaceChildren(el('span','Запрос удалён из истории.')); } else throw error; }
+  catch (error) { if (selected !== id) return; if (error.message.includes('404')) { detail = null; detailSignature = ''; await renderDetail(); $('selection').replaceChildren(el('span',t('inspect.deleted'))); } else throw error; }
 }
 async function choose(id) {
   if (id === selected) return;
   selected = id; wsData=null;wsBefore=null;wsSignature="";detail = null; detailSignature = ''; renderRows(); await renderDetail();
-  $('selection').replaceChildren(el('span','#'+id,'selection-id'),el('span','Загрузка…'));
+  $('selection').replaceChildren(el('span','#'+id,'selection-id'),el('span',t('inspect.loading')));
   try { await loadDetail(); await loadWs(); } catch(error) { showError(error); }
 }
 async function refresh() {
   try {
     if (!paused) { await loadPage(); await loadDetail(); await loadWs(); }
-    $('connection').textContent = paused ? 'Список на паузе' : 'Прокси подключён'; $('dot').classList.toggle('live', !paused); showError(null);
-  } catch(error) { $('connection').textContent = 'Нет связи с ядром'; $('dot').classList.remove('live'); showError(error); }
+    $('connection').textContent = t(paused ? 'header.paused' : 'header.connected'); $('dot').classList.toggle('live', !paused); showError(null);
+  } catch(error) { $('connection').textContent = t('header.offline'); $('dot').classList.remove('live'); showError(error); }
   finally { setTimeout(refresh, 1000); }
 }
 function renderFilterChips(){
   const box=$('filter-chips');box.replaceChildren();
-  const add=(label,remove)=>{const button=el('button',label+' ×','filter-chip');button.title='Убрать условие';button.onclick=()=>{remove();renderFilterChips();filtersChanged();};box.append(button);};
-  if($('filter').value)add('Поиск: '+$('filter').value,()=>{$('filter').value='';});
-  if($('traffic-type').value)add('Тип: '+$('traffic-type').selectedOptions[0].textContent,()=>{$('traffic-type').value='';});
-  if($('method').value)add('Метод: '+$('method').value,()=>{$('method').value='';});
-  if($('status').value)add('Статус: '+$('status').selectedOptions[0].textContent,()=>{$('status').value='';});
+  const add=(label,remove)=>{const button=el('button',label+' ×','filter-chip');button.title=t('chip.remove');button.onclick=()=>{remove();renderFilterChips();filtersChanged();};box.append(button);};
+  if($('filter').value)add(t('chip.search',{value:$('filter').value}),()=>{$('filter').value='';});
+  if($('traffic-type').value)add(t('chip.type',{value:$('traffic-type').selectedOptions[0].textContent}),()=>{$('traffic-type').value='';});
+  if($('method').value)add(t('chip.method',{value:$('method').value}),()=>{$('method').value='';});
+  if($('status').value)add(t('chip.status',{value:$('status').selectedOptions[0].textContent}),()=>{$('status').value='';});
   filterRules.forEach((rule,index)=>add(LibriumFilters.label(rule),()=>filterRules.splice(index,1)));
   box.hidden=!box.children.length;
-  if(box.children.length){box.prepend(el('span','Все условия (И):'));const reset=el('button','Сбросить всё','quiet');reset.onclick=()=>{filterRules=[];for(const id of ['filter','method','status','traffic-type'])$(id).value='';renderFilterChips();filtersChanged();};box.append(reset);}
+  if(box.children.length){box.prepend(el('span',t('chip.all')));const reset=el('button',t('chip.reset'),'quiet');reset.onclick=()=>{filterRules=[];for(const id of ['filter','method','status','traffic-type'])$(id).value='';renderFilterChips();filtersChanged();};box.append(reset);}
 }
 for (const id of ['filter','method','status','traffic-type']) $(id).addEventListener('input', ()=>{renderFilterChips();filtersChanged();});
 for(const [key,label] of Object.entries(LibriumFilters.fields)){const option=el('option',label);option.value=key;$('rule-field').append(option);}
-function ruleOperators(){const numeric=LibriumFilters.numeric($('rule-field').value);$('rule-op').replaceChildren();for(const key of numeric?['eq','gte','lte','ne']:['contains','not_contains','eq','ne']){const option=el('option',LibriumFilters.operators[key]);option.value=key;$('rule-op').append(option);}$('rule-value').type=numeric?'number':'text';$('rule-value').value='';$('rule-value').placeholder=numeric?'Например: 400':'Например: api.example.com';$('rule-error').textContent='';}
+function ruleOperators(){const numeric=LibriumFilters.numeric($('rule-field').value);$('rule-op').replaceChildren();for(const key of numeric?['eq','gte','lte','ne']:['contains','not_contains','eq','ne']){const option=el('option',LibriumFilters.operators[key]);option.value=key;$('rule-op').append(option);}$('rule-value').type=numeric?'number':'text';$('rule-value').value='';$('rule-value').placeholder=t(numeric?'filters.valueNumber':'filters.valuePlaceholder');$('rule-error').textContent='';}
 $('rule-field').onchange=ruleOperators;ruleOperators();
 $('filters-open').onclick=()=>{$('filters-dialog').showModal();$('rule-value').focus();};$('filters-close').onclick=()=>$('filters-dialog').close();
 function addRule(rule){const error=LibriumFilters.validate(rule);$('rule-error').textContent=error;if(error)return;if(!filterRules.some(r=>JSON.stringify(r)===JSON.stringify(rule)))filterRules.push(rule);renderFilterChips();filtersChanged();$('filters-dialog').close();}
 $('filter-form').onsubmit=event=>{event.preventDefault();addRule({field:$('rule-field').value,op:$('rule-op').value,value:$('rule-value').value.trim()});};
-document.querySelectorAll('[data-preset]').forEach(button=>button.onclick=()=>{const kind=button.dataset.preset;if(kind==='errors')addRule({field:'status',op:'gte',value:'400'});else if(kind==='post')addRule({field:'method',op:'eq',value:'POST'});else{const row=rows.find(r=>r.id===selected);if(!row){$('rule-error').textContent='Сначала выбери запрос в истории.';return;}addRule({field:'host',op:'eq',value:new URL(row.url).hostname});}});
+document.querySelectorAll('[data-preset]').forEach(button=>button.onclick=()=>{const kind=button.dataset.preset;if(kind==='errors')addRule({field:'status',op:'gte',value:'400'});else if(kind==='post')addRule({field:'method',op:'eq',value:'POST'});else{const row=rows.find(r=>r.id===selected);if(!row){$('rule-error').textContent=t('filters.pickFirst');return;}addRule({field:'host',op:'eq',value:new URL(row.url).hostname});}});
 $('page-next').onclick=()=>{if(pageAnchor===null)pageAnchor=pageNewest;pageOffset+=PAGE_SIZE;loadPage().catch(showError);};
 $('page-prev').onclick=()=>{pageOffset=Math.max(0,pageOffset-PAGE_SIZE);if(pageOffset===0)pageAnchor=null;loadPage().catch(showError);};
 $('page-live').onclick=()=>{pageOffset=0;pageAnchor=null;loadPage().catch(showError);};
 $('find').oninput = renderDetail;
-$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? '▶ Продолжить' : 'Ⅱ Пауза списка'; $('pause').classList.toggle('active',paused); };
-$('clear').onclick = async () => { if(!window.confirm('Удалить всю сохранённую историю запросов с диска?'))return; try { await api('traffic','DELETE'); ++listGeneration; pageOffset=0;pageAnchor=null;pageTotal=0;pageMatched=0; rows = []; selected = null; detail = null; detailSignature = ''; rowsSignature = ''; renderRows(); renderDetail(); $('selection').replaceChildren(el('span','История очищена')); } catch(error) { showError(error); } };
+$('pause').onclick = () => { paused = !paused; $('pause').textContent = t(paused ? 'toolbar.resume' : 'toolbar.pause'); $('pause').classList.toggle('active',paused); };
+$('clear').onclick = async () => { if(!window.confirm(t('history.confirmClear')))return; try { await api('traffic','DELETE'); ++listGeneration; pageOffset=0;pageAnchor=null;pageTotal=0;pageMatched=0; rows = []; selected = null; detail = null; detailSignature = ''; rowsSignature = ''; renderRows(); renderDetail(); $('selection').replaceChildren(el('span',t('history.cleared'))); } catch(error) { showError(error); } };
 $('setup').onclick = () => $('dialog').showModal(); $('close').onclick = () => $('dialog').close();
-$('browser').onclick=async()=>{try{await window.librium.openBrowser();toast('Браузер запущен через прокси');}catch(error){showError(error);}};
-$('ca').onclick = async () => { try { if(window.librium) { if(await window.librium.saveCertificate()) toast('Сертификат сохранён'); } else { const res = await fetch('/api/ca',{headers:{'x-librium-token':token}}); if(!res.ok) throw Error(`API: ${res.status}`); const url=URL.createObjectURL(await res.blob()); const a=el('a'); a.href=url; a.download='librium-ca.crt'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); } } catch(error) { showError(error); } };
+$('browser').onclick=async()=>{try{await window.librium.openBrowser();toast(t('https.browserStarted'));}catch(error){showError(error);}};
+$('ca').onclick = async () => { try { if(window.librium) { if(await window.librium.saveCertificate()) toast(t('https.caSaved')); } else { const res = await fetch('/api/ca',{headers:{'x-librium-token':token}}); if(!res.ok) throw Error(`API: ${res.status}`); const url=URL.createObjectURL(await res.blob()); const a=el('a'); a.href=url; a.download='librium-ca.crt'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); } } catch(error) { showError(error); } };
 document.addEventListener('keydown',event=>{if(event.ctrlKey && event.key.toLowerCase()==='k'){event.preventDefault();$('filter').focus();}if(event.ctrlKey && event.key.toLowerCase()==='f'){event.preventDefault();$('find').focus();}});
 const divider=$('divider');
 divider.onpointerdown=event=>{divider.setPointerCapture(event.pointerId);};
@@ -348,12 +350,14 @@ divider.onpointermove=event=>{if(divider.hasPointerCapture(event.pointerId)){con
 divider.onpointerup=event=>divider.releasePointerCapture(event.pointerId);
 divider.onkeydown=event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();const current=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--history'));document.documentElement.style.setProperty('--history',Math.max(30,Math.min(60,current+(event.key==='ArrowRight'?2:-2)))+'%');}};
 $('filter-session').onchange=()=>{sessionState.activeId=$('filter-session').value;applySession();persistSessions();loadPage().catch(showError);};
-function sessionDialog(rename){sessionEditing=rename;$('session-title').textContent=rename?'Переименовать сессию':'Новая сессия фильтров';$('session-name').value=rename?sessionState.sessions.find(s=>s.id===sessionState.activeId).name:'';$('session-copy-row').hidden=rename;$('session-copy').checked=true;$('session-error').textContent='';$('session-dialog').showModal();$('session-name').focus();}
+function sessionDialog(rename){sessionEditing=rename;$('session-title').textContent=t(rename?'session.renameTitle':'session.newTitle');$('session-name').value=rename?sessionState.sessions.find(s=>s.id===sessionState.activeId).name:'';$('session-copy-row').hidden=rename;$('session-copy').checked=true;$('session-error').textContent='';$('session-dialog').showModal();$('session-name').focus();}
 $('session-new').onclick=()=>sessionDialog(false);$('session-rename').onclick=()=>sessionDialog(true);$('session-cancel').onclick=()=>$('session-dialog').close();
-$('session-form').onsubmit=event=>{event.preventDefault();const name=$('session-name').value.trim();if(!name){$('session-error').textContent='Введи название';return;}if(sessionState.sessions.some(s=>s.name.toLowerCase()===name.toLowerCase()&&(!sessionEditing||s.id!==sessionState.activeId))){$('session-error').textContent='Такая сессия уже есть';return;}
- if(sessionEditing)sessionState.sessions.find(s=>s.id===sessionState.activeId).name=name;else{if(sessionState.sessions.length>=200){$('session-error').textContent='Достигнут лимит: 200 сессий';return;}const id=crypto.randomUUID();sessionState.sessions.push({id,name,...($('session-copy').checked?currentFilters():emptyFilters())});sessionState.activeId=id;}
+$('session-form').onsubmit=event=>{event.preventDefault();const name=$('session-name').value.trim();if(!name){$('session-error').textContent=t('session.nameRequired');return;}if(sessionState.sessions.some(s=>s.name.toLowerCase()===name.toLowerCase()&&(!sessionEditing||s.id!==sessionState.activeId))){$('session-error').textContent=t('session.nameTaken');return;}
+ if(sessionEditing)sessionState.sessions.find(s=>s.id===sessionState.activeId).name=name;else{if(sessionState.sessions.length>=200){$('session-error').textContent=t('session.limit');return;}const id=crypto.randomUUID();sessionState.sessions.push({id,name,...($('session-copy').checked?currentFilters():emptyFilters())});sessionState.activeId=id;}
  applySession();persistSessions();loadPage().catch(showError);$('session-dialog').close();};
-$('session-delete').onclick=()=>{const current=sessionState.sessions.find(s=>s.id===sessionState.activeId);if(!window.confirm(`Удалить сессию «${current.name}»? История запросов останется.`))return;sessionState.sessions=sessionState.sessions.filter(s=>s.id!==current.id);if(!sessionState.sessions.length)sessionState.sessions=[{id:crypto.randomUUID(),name:'Основная',...emptyFilters()}];sessionState.activeId=sessionState.sessions[0].id;applySession();persistSessions();loadPage().catch(showError);};
+$('session-delete').onclick=()=>{const current=sessionState.sessions.find(s=>s.id===sessionState.activeId);if(!window.confirm(t('session.confirmDelete',{name:current.name})))return;sessionState.sessions=sessionState.sessions.filter(s=>s.id!==current.id);if(!sessionState.sessions.length)sessionState.sessions=[{id:crypto.randomUUID(),name:t('session.default'),...emptyFilters()}];sessionState.activeId=sessionState.sessions[0].id;applySession();persistSessions();loadPage().catch(showError);};
 $('preset-ws').onclick=()=>{$('traffic-type').value='ws';renderFilterChips();filtersChanged();$('filters-dialog').close();};
 document.querySelectorAll('[data-sort]').forEach(button=>button.onclick=()=>{const field=button.dataset.sort;sortOrder=field===sortField?(sortOrder==='asc'?'desc':'asc'):['method','url'].includes(field)?'asc':'desc';sortField=field;renderSort();filtersChanged();});
+$('lang').onclick=async()=>{const next=LibriumI18n.lang==='ru'?'en':'ru';try{localStorage.setItem('librium-lang',next);}catch{}try{await window.librium?.setLanguage?.(next);}catch{}if(window.librium?.reload)window.librium.reload().catch(()=>location.reload());else location.reload();};
+Promise.resolve(window.librium?.setLanguage?.(LibriumI18n.lang)).catch(()=>{});
 renderDetail();loadInfo().catch(showError);initSessions().then(refresh).catch(showError);
