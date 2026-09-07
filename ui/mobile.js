@@ -12,8 +12,18 @@ function renderMobile(){
   $('mobile-toggle').textContent=mobileState.enabled?'Выключить доступ телефона':'Включить домашнюю сеть';
   $('mobile-state').textContent=mobileState.enabled?`Доступ включён · ${mobileState.address}:${mobileState.proxyPort}`:mobileState.addresses.length?'Выбери адрес домашней сети и включи доступ.':'Не найден домашний IPv4-адрес. Подключи компьютер к домашней сети.';
   $('mobile-details').hidden=!mobileState.enabled;
+  mobileFirewallHint(mobileState.proxyPort,mobileState.certificatePort);
   if(mobileState.enabled){$('mobile-host').textContent=mobileState.address;$('mobile-port').textContent=mobileState.proxyPort;$('mobile-url').value=mobileState.url;$('mobile-client').textContent=mobileState.lastClient?`Последнее подключение: ${mobileState.lastClient}`:'Телефон ещё не подключался.';}
 }
+function mobileFirewallHint(proxyPort=Number(proxyAddress.split(':')[1])||8080,certificatePort=proxyPort+1){
+  $('mobile-firewall').hidden=platform!=='win32';
+  $('mobile-firewall-hint').textContent=platform==='win32'
+    ?`Если ссылка не открывается, разреши TCP ${proxyPort} и ${certificatePort} для частной сети в брандмауэре Windows. Кнопка копирует команду для PowerShell от администратора. Гостевой Wi-Fi, изоляция клиентов и VPN могут мешать соединению.`
+    :platform==='darwin'
+    ?'Если ссылка не открывается, разреши входящие подключения для Librium: Системные настройки → Сеть → Брандмауэр → Параметры (если брандмауэр включён). Гостевой Wi-Fi, изоляция клиентов и VPN могут мешать соединению.'
+    :`Если ссылка не открывается, разреши входящие TCP-подключения на порты ${proxyPort} и ${certificatePort} в брандмауэре. Гостевой Wi-Fi, изоляция клиентов и VPN могут мешать соединению.`;
+}
+mobileFirewallHint();
 $('phone').onclick=async()=>{$('mobile-dialog').showModal();await refreshMobile();};
 $('mobile-close').onclick=()=>$('mobile-dialog').close();
 $('mobile-refresh').onclick=refreshMobile;

@@ -65,6 +65,25 @@ async function api(path, method = 'GET') {
   if (!response.ok) throw Error(`API: ${response.status}`);
   return response.status === 204 ? null : response.json();
 }
+let proxyAddress='127.0.0.1:8080',dataDir='';
+const platform=window.librium?.platform||(navigator.platform.startsWith('Mac')?'darwin':navigator.platform.startsWith('Win')?'win32':'linux');
+function caPath(){
+  if(dataDir)return dataDir+(platform==='win32'?'\\ca.crt':'/ca.crt');
+  return platform==='win32'?'$env:LOCALAPPDATA\\Librium\\ca.crt':platform==='darwin'?'$HOME/Library/Application Support/Librium/ca.crt':'${XDG_DATA_HOME:-$HOME/.local/share}/librium/ca.crt';
+}
+function renderConnectionInfo(){
+  for(const id of ['proxy-address','dialog-proxy','empty-proxy']){const node=$(id);if(node)node.textContent=proxyAddress;}
+  $('ca-install').textContent=platform==='win32'?'Скачай CA и установи его в доверенные корневые сертификаты текущего пользователя.'
+    :platform==='darwin'?'Скачай CA и открой файл в «Связке ключей» (Keychain Access): найди Librium Local CA и в свойствах доверия выбери «Всегда доверять». Или в Терминале: security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db <путь к ca.crt>'
+    :'Скачай CA и добавь его в хранилище сертификатов системы или браузера.';
+  $('ca-check-label').textContent=platform==='win32'?'Проверка из PowerShell:':'Проверка из терминала:';
+  $('ca-check').textContent=platform==='win32'?`curl.exe --ssl-revoke-best-effort --proxy http://${proxyAddress} --cacert "${caPath()}" https://example.com`:`curl --proxy http://${proxyAddress} --cacert "${caPath()}" https://example.com`;
+  window.mobileFirewallHint?.();
+}
+async function loadInfo(){
+  try{const info=await api('info');const port=Number(info?.proxy_port);if(Number.isInteger(port)&&port>0&&port<=65535)proxyAddress='127.0.0.1:'+port;if(typeof info?.data_dir==='string'&&info.data_dir)dataDir=info.data_dir;}catch{}
+  renderConnectionInfo();
+}
 function splitUrl(url) { try { const u = new URL(url); return { host: u.host, path: u.pathname + u.search }; } catch { return { host: url, path: '/' }; } }
 function renderSort(){
  document.querySelectorAll('[data-sort]').forEach(button=>{const active=button.dataset.sort===sortField;button.textContent=button.dataset.label+(active?(sortOrder==='asc'?' ↑':' ↓'):'');button.closest('th').setAttribute('aria-sort',active?(sortOrder==='asc'?'ascending':'descending'):'none');});
@@ -97,7 +116,7 @@ function renderRows() {
   $('page-next').disabled=pageOffset+PAGE_SIZE>=pageMatched;
   $('empty').hidden = shown.length > 0;
   if (rows.length && !shown.length) $('empty').replaceChildren(el('h3', 'Ничего не найдено'), el('p', 'Измени фильтр, чтобы увидеть запросы.'));
-  else if (!rows.length) $('empty').replaceChildren(el('div', '↔', 'empty-icon'), el('h3', 'Ожидание трафика'), el('p', 'Прокси 127.0.0.1:8080 · Настройка HTTPS слева внизу.'));
+  else if (!rows.length) $('empty').replaceChildren(el('div', '↔', 'empty-icon'), el('h3', 'Ожидание трафика'), el('p', `Прокси ${proxyAddress} · Настройка HTTPS слева внизу.`));
 }
 for (const side of ['request', 'response']) {
   const pane = el('section', undefined, 'pane'), title = el('div', undefined, 'pane-title');
@@ -331,4 +350,4 @@ $('session-form').onsubmit=event=>{event.preventDefault();const name=$('session-
 $('session-delete').onclick=()=>{const current=sessionState.sessions.find(s=>s.id===sessionState.activeId);if(!window.confirm(`Удалить сессию «${current.name}»? История запросов останется.`))return;sessionState.sessions=sessionState.sessions.filter(s=>s.id!==current.id);if(!sessionState.sessions.length)sessionState.sessions=[{id:crypto.randomUUID(),name:'Основная',...emptyFilters()}];sessionState.activeId=sessionState.sessions[0].id;applySession();persistSessions();loadPage().catch(showError);};
 $('preset-ws').onclick=()=>{$('traffic-type').value='ws';renderFilterChips();filtersChanged();$('filters-dialog').close();};
 document.querySelectorAll('[data-sort]').forEach(button=>button.onclick=()=>{const field=button.dataset.sort;sortOrder=field===sortField?(sortOrder==='asc'?'desc':'asc'):['method','url'].includes(field)?'asc':'desc';sortField=field;renderSort();filtersChanged();});
-renderDetail();initSessions().then(refresh).catch(showError);
+renderDetail();loadInfo().catch(showError);initSessions().then(refresh).catch(showError);

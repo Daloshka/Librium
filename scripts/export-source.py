@@ -5,10 +5,10 @@ import re
 import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
-ROOT_FILES = {'.gitignore', '.gitattributes', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE', 'Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'run.ps1'}
+ROOT_FILES = {'.gitignore', '.gitattributes', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE', 'Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'run.ps1', 'run.sh'}
 DIRECTORIES = {'src', 'desktop', 'ui', 'scripts', 'docs', '.github'}
-TEXT_SUFFIXES = {'.rs', '.cjs', '.js', '.html', '.css', '.ps1', '.py', '.md', '.toml', '.lock', '.json', '.yml', '.yaml'}
-BINARY_FILES = {'desktop/assets/icon.png', 'desktop/assets/icon.ico', 'docs/images/http-history.webp', 'docs/images/media-preview.webp'}
+TEXT_SUFFIXES = {'.rs', '.cjs', '.js', '.html', '.css', '.ps1', '.sh', '.py', '.md', '.toml', '.lock', '.json', '.yml', '.yaml'}
+BINARY_FILES = {'desktop/assets/icon.png', 'desktop/assets/icon.ico', 'desktop/assets/icon.icns', 'docs/images/http-history.webp', 'docs/images/media-preview.webp'}
 RULES = {
     'private key': r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
     'access token': r'(?:ghp_|github_pat_|sk-proj-)[A-Za-z0-9_-]{16,}',
@@ -29,7 +29,8 @@ def source_files(root=ROOT):
             continue
         if item.is_symlink():
             raise ValueError(f'Symlink is not allowed: {relative}')
-        if not item.is_file():
+        # Finder and Python drop these into any browsed or imported directory; they are never sources.
+        if not item.is_file() or item.name == '.DS_Store' or '__pycache__' in relative.parts:
             continue
         name = relative.as_posix()
         if name not in ROOT_FILES and name not in BINARY_FILES and item.suffix not in TEXT_SUFFIXES:
@@ -71,7 +72,7 @@ def main():
     for item, relative in files:
         output = destination / relative
         output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(item, output)
+        shutil.copy(item, output)  # keeps the executable bit of run.sh
     print(f'Exported {len(files)} source files; no Git history or runtime data included')
 
 if __name__ == '__main__':

@@ -18,13 +18,60 @@ use axum::{
 use capture::{Capture, Shared, Summary};
 use hudsucker::{Proxy, rustls::crypto::aws_lc_rs};
 use serde::Deserialize;
-use std::{net::SocketAddr, path::PathBuf};
+use std::path::PathBuf;
 
 #[derive(Clone)]
 struct App {
     history: Shared,
     token: String,
     pem: String,
+    hosts: [String; 2],
+    info: serde_json::Value,
+}
+
+/// Data directory: LIBRIUM_DATA_DIR, else the per-user application data directory of the platform.
+fn data_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("LIBRIUM_DATA_DIR") {
+        return PathBuf::from(dir);
+    }
+    let base = if cfg!(windows) {
+        std::env::var_os("LOCALAPPDATA").map(|d| PathBuf::from(d).join("Librium"))
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME")
+            .map(|home| PathBuf::from(home).join("Library/Application Support/Librium"))
+    } else if let Some(data) = std::env::var_os("XDG_DATA_HOME") {
+        Some(PathBuf::from(data).join("librium"))
+    } else {
+        std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share/librium"))
+    };
+    base.unwrap_or_else(|| PathBuf::from(".local").join("Librium"))
+}
+fn port_from_env(name: &str, default: u16, max: u16) -> Result<u16> {
+    let Some(value) = std::env::var_os(name) else {
+        return Ok(default);
+    };
+    let value = value.to_string_lossy();
+    value
+        .trim()
+        .parse::<u16>()
+        .ok()
+        .filter(|port| (1..=max).contains(port))
+        .with_context(|| format!("{name}={value} is not a port number in 1..={max}"))
+}
+#[cfg(unix)]
+async fn shutdown() -> Result<()> {
+    use tokio::signal::unix::{SignalKind, signal};
+    // Electron's child.kill() sends SIGTERM, so it must flush the history too.
+    let mut term = signal(SignalKind::terminate())?;
+    tokio::select! {
+        result = tokio::signal::ctrl_c() => result?,
+        _ = term.recv() => {}
+    }
+    Ok(())
+}
+#[cfg(not(unix))]
+async fn shutdown() -> Result<()> {
+    Ok(tokio::signal::ctrl_c().await?)
 }
 
 async fn protect(State(app): State<App>, req: Request, next: Next) -> Response {
@@ -33,7 +80,7 @@ async fn protect(State(app): State<App>, req: Request, next: Next) -> Response {
         .get(header::HOST)
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
-    if host != "127.0.0.1:3000" && host != "localhost:3000" {
+    if !app.hosts.iter().any(|allowed| allowed == host) {
         return StatusCode::FORBIDDEN.into_response();
     }
     if req.uri().path().starts_with("/api/")
@@ -143,6 +190,9 @@ async fn flush(State(app): State<App>) -> Result<StatusCode, StatusCode> {
     app.history.lock().unwrap().flush().map_err(storage_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
+async fn info(State(app): State<App>) -> Json<serde_json::Value> {
+    Json(app.info)
+}
 async fn certificate(State(app): State<App>) -> impl IntoResponse {
     (
         [
@@ -164,14 +214,10 @@ async fn main() -> Result<()> {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
         )
         .init();
-    let dir = std::env::var_os("LIBRIUM_DATA_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("LOCALAPPDATA")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(".local"))
-                .join("Librium")
-        });
+    let dir = data_dir();
+    let ui_port = port_from_env("LIBRIUM_UI_PORT", 3000, 65535)?;
+    // The phone certificate page uses proxy_port + 1, so the proxy cannot take the last port.
+    let proxy_port = port_from_env("LIBRIUM_PROXY_PORT", 8080, 65534)?;
     let (authority, pem) = ca::load(&dir)?;
     let history = std::sync::Arc::new(std::sync::Mutex::new(capture::History::open(
         &dir.join("history.sqlite3"),
@@ -202,6 +248,12 @@ async fn main() -> Result<()> {
         history: history.clone(),
         token: uuid::Uuid::new_v4().to_string(),
         pem,
+        hosts: [
+            format!("127.0.0.1:{ui_port}"),
+            format!("localhost:{ui_port}"),
+        ],
+        info: serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"phone_lan":true,"persistent_history":true,
+            "ui_port":ui_port,"proxy_port":proxy_port,"data_dir":dir.display().to_string()}),
     };
     let router = Router::new()
         .route("/", get(index))
@@ -226,12 +278,7 @@ async fn main() -> Result<()> {
         .route("/api/traffic", get(list).delete(clear))
         .route("/api/traffic-page", get(page))
         .route("/api/storage-flush", axum::routing::post(flush))
-        .route(
-            "/api/info",
-            get(|| async {
-                Json(serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"phone_lan":true,"persistent_history":true}))
-            }),
-        )
+        .route("/api/info", get(info))
         .route(
             "/filters.js",
             get(|| async {
@@ -251,31 +298,43 @@ async fn main() -> Result<()> {
             }),
         )
         .route("/api/traffic/{id}", get(detail))
-        .route("/api/traffic/{id}/ws",get(ws_messages))
+        .route("/api/traffic/{id}/ws", get(ws_messages))
         .route("/api/ca", get(certificate))
         .layer(middleware::from_fn_with_state(app.clone(), protect))
         .with_state(app);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", ui_port))
         .await
-        .context("UI port 3000 is busy")?;
+        .with_context(|| {
+            format!("UI port {ui_port} is busy (set LIBRIUM_UI_PORT to use another port)")
+        })?;
+    let proxy_listener = tokio::net::TcpListener::bind(("127.0.0.1", proxy_port))
+        .await
+        .with_context(|| {
+            format!("Proxy port {proxy_port} is busy (set LIBRIUM_PROXY_PORT to use another port)")
+        })?;
     let proxy = Proxy::builder()
-        .with_addr(SocketAddr::from(([127, 0, 0, 1], 8080)))
+        .with_listener(proxy_listener)
         .with_ca(authority)
         .with_rustls_connector(aws_lc_rs::default_provider())
         .with_http_handler(Capture {
             history: history.clone(),
             current: None,
+            control_ports: [ui_port, proxy_port, proxy_port.saturating_add(1)],
         })
         .build()
-        .context("Cannot build proxy")?;
+        .with_context(|| {
+            format!(
+                "Cannot build proxy on 127.0.0.1:{proxy_port} (set LIBRIUM_PROXY_PORT to use another port)"
+            )
+        })?;
     println!(
-        "Librium\n  UI:    http://127.0.0.1:3000\n  Proxy: 127.0.0.1:8080\n  CA:    {}\nCtrl+C to stop",
+        "Librium\n  UI:    http://127.0.0.1:{ui_port}\n  Proxy: 127.0.0.1:{proxy_port}\n  CA:    {}\nCtrl+C to stop",
         dir.join("ca.crt").display()
     );
     tokio::select! {
         result = proxy.start() => result.context("Proxy stopped")?,
         result = axum::serve(listener, router) => result.context("UI stopped")?,
-        result = tokio::signal::ctrl_c() => result?,
+        result = shutdown() => result?,
     }
     writer.abort();
     history.lock().unwrap().flush()?;

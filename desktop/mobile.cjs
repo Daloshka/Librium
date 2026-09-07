@@ -19,7 +19,7 @@ function sameSubnet(ip, local, mask) {
 function bind(server, port, host) {
   return new Promise((resolve,reject) => { server.once('error',reject); server.listen({port,host,exclusive:true},()=>{server.off('error',reject);resolve();}); });
 }
-function blockedPort(port) { return [3000,8080,8081].includes(Number(port)); }
+function blockedPort(ports, port) { return ports.includes(Number(port)); }
 function cleanHeaders(headers) {
   const result={...headers};
   for(const name of String(headers.connection || '').split(',')) delete result[name.trim().toLowerCase()];
@@ -27,8 +27,8 @@ function cleanHeaders(headers) {
   return result;
 }
 class Mobile {
-  constructor({getCertificate, listAddresses=addresses, corePort=8080, proxyPort=8080, certificatePort=8081}) {
-    this.getCertificate=getCertificate;this.listAddresses=listAddresses;this.corePort=corePort;this.proxyPort=proxyPort;this.certificatePort=certificatePort;
+  constructor({getCertificate, listAddresses=addresses, corePort=8080, proxyPort=8080, certificatePort=8081, controlPorts=[3000,8080,8081]}) {
+    this.getCertificate=getCertificate;this.listAddresses=listAddresses;this.corePort=corePort;this.proxyPort=proxyPort;this.certificatePort=certificatePort;this.controlPorts=controlPorts.map(Number);
     this.sockets=new Set();this.servers=[];this.active=null;this.lastClient=null;
   }
   status() { return {enabled:!!this.active, addresses:this.listAddresses(), ...this.active, lastClient:this.lastClient}; }
@@ -52,7 +52,7 @@ class Mobile {
     const proxy=http.createServer((req,res)=>{
       let url;try{url=new URL(req.url);if(url.protocol!=='http:' || url.username || url.password)throw Error();}catch{res.writeHead(400);res.end('Absolute HTTP URL required');return;}
       if(url.hostname===address && Number(url.port)===this.certificatePort){serveCertificate(req,res,url.pathname);return;}
-      if(blockedPort(url.port||80)){res.writeHead(403);res.end('Local control ports are not available through the phone proxy');return;}
+      if(blockedPort(this.controlPorts,url.port||80)){res.writeHead(403);res.end('Local control ports are not available through the phone proxy');return;}
       this.lastClient=req.socket.remoteAddress;
       const upstream=http.request({hostname:'127.0.0.1',port:this.corePort,path:req.url,method:req.method,headers:{...cleanHeaders(req.headers),host:url.host},agent:false},response=>{
         res.writeHead(response.statusCode,cleanHeaders(response.headers));response.pipe(res);
@@ -65,7 +65,7 @@ class Mobile {
     });
     proxy.on('connect',(req,client,head)=>{
       let authority;try{authority=new URL('http://'+req.url);if(!/^\d+$/.test(req.url.split(':').pop()) || authority.username || authority.password || authority.pathname!=='/' || authority.search || authority.hash || !authority.port && !req.url.endsWith(':80'))throw Error();}catch{client.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');return;}
-      if(blockedPort(authority.port||80)){client.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
+      if(blockedPort(this.controlPorts,authority.port||80)){client.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
       this.lastClient=client.remoteAddress;
       const upstream=http.request({hostname:'127.0.0.1',port:this.corePort,method:'CONNECT',path:req.url,headers:{host:req.url},agent:false});
       upstream.setTimeout(15000,()=>upstream.destroy(Error('CONNECT timeout')));

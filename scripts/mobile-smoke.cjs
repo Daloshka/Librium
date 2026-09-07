@@ -2,7 +2,14 @@ const assert=require('node:assert/strict');
 const http=require('node:http');
 const fs=require('node:fs');
 const {join}=require('node:path');
+const os=require('node:os');
 const {Mobile,addresses,sameSubnet}=require('../desktop/mobile.cjs');
+function dataDir(){
+ if(process.env.LIBRIUM_DATA_DIR)return process.env.LIBRIUM_DATA_DIR;
+ if(process.platform==='win32')return join(process.env.LOCALAPPDATA||os.homedir(),'Librium');
+ if(process.platform==='darwin')return join(os.homedir(),'Library/Application Support/Librium');
+ return join(process.env.XDG_DATA_HOME||join(os.homedir(),'.local/share'),'librium');
+}
 const filters=require('../ui/filters.js');
 async function listen(server){await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));return server.address().port;}
 function get(host,port,path){return new Promise((resolve,reject)=>{http.get({host,port,path},res=>{const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve({status:res.statusCode,body:Buffer.concat(chunks),headers:res.headers}));}).on('error',reject);});}
@@ -19,7 +26,7 @@ function get(host,port,path){return new Promise((resolve,reject)=>{http.get({hos
   core.on('connection',socket=>{sockets.add(socket);socket.on('close',()=>sockets.delete(socket));});
   core.on('connect',(_req,socket,head)=>{socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');if(head.length)socket.write(head);socket.pipe(socket);});
   const corePort=await listen(core);
-  const mobile=new Mobile({getCertificate:async()=>fs.readFileSync(join(process.env.LOCALAPPDATA,'Librium/ca.crt'),'utf8'),corePort,proxyPort:18080,certificatePort:18081});
+  const mobile=new Mobile({getCertificate:async()=>fs.readFileSync(join(dataDir(),'ca.crt'),'utf8'),corePort,proxyPort:18080,certificatePort:18081});
   try{
     const status=await mobile.enable(adapter.address);assert.equal(status.enabled,true);
     const cert=await get(adapter.address,18081,new URL(status.url).pathname+'/ca.crt');assert.equal(cert.status,200);assert.equal(cert.body[0],0x30);assert.ok(!cert.body.includes('PRIVATE KEY'));

@@ -334,10 +334,15 @@ impl<
 pub struct Capture {
     pub history: Shared,
     pub current: Option<u64>,
+    pub control_ports: [u16; 3],
 }
 impl HttpHandler for Capture {
     async fn handle_request(&mut self, ctx: &HttpContext, req: Request<Body>) -> RequestOrResponse {
-        if matches!(req.uri().port_u16(), Some(3000 | 8080 | 8081)) {
+        if req
+            .uri()
+            .port_u16()
+            .is_some_and(|port| self.control_ports.contains(&port))
+        {
             return Response::builder()
                 .status(403)
                 .body(Body::from(

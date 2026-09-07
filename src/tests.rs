@@ -39,6 +39,7 @@ async fn proxy_streams_uploads_pairs_concurrent_requests_and_reports_failure() {
         .with_http_handler(Capture {
             history: history.clone(),
             current: None,
+            control_ports: [3000, 8080, 8081],
         })
         .build()
         .unwrap();

@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('librium', {
   mobileEnable: address => ipcRenderer.invoke('mobile-enable', address),
   mobileDisable: () => ipcRenderer.invoke('mobile-disable'),
   reportError: message => ipcRenderer.invoke('report-error', message),
+  platform: process.platform,
 });

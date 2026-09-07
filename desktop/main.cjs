@@ -6,7 +6,18 @@ const { writeFile } = require('node:fs/promises');
 const http = require('node:http');
 const fs = require('node:fs');
 const { Mobile } = require('./mobile.cjs');
-const base = 'http://127.0.0.1:3000';
+function portFromEnv(name, fallback, max = 65535) {
+  const value = process.env[name];
+  if (value === undefined || value === '') return fallback;
+  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max) throw Error(`Неверное значение ${name}=${value}: укажи порт от 1 до ${max}`);
+  return Number(value);
+}
+let startupError = null;
+const readPort = (name, fallback, max) => { try { return portFromEnv(name, fallback, max); } catch (error) { startupError ??= error; return fallback; } };
+// The phone certificate page lives one port above the proxy, so the proxy cannot take the last port (the core enforces the same limit).
+const UI_PORT = readPort('LIBRIUM_UI_PORT', 3000), PROXY_PORT = readPort('LIBRIUM_PROXY_PORT', 8080, 65534);
+const certificatePort = proxyPort => Math.min(proxyPort + 1, 65535);
+const base = 'http://127.0.0.1:' + UI_PORT;
 let child, window, token, childError = '', coreStarting;
 function ensureCore(){
   if(!coreStarting)coreStarting=startCore().finally(()=>{coreStarting=null;});
@@ -16,14 +27,14 @@ const mobile = new Mobile({getCertificate: async () => {
   try {const info=JSON.parse(await request('/api/info'));if(!info.phone_lan)throw Error();}
   catch {throw Error('Нужно обновить Rust-ядро: останови старый Librium и запусти новую сборку.');}
   return request('/api/ca');
-}});
+}, corePort: PROXY_PORT, proxyPort: PROXY_PORT, certificatePort: certificatePort(PROXY_PORT), controlPorts: [UI_PORT, PROXY_PORT, certificatePort(PROXY_PORT)]});
 let mobileOperation=Promise.resolve();
 const page = pathToFileURL(join(__dirname, '../ui/index.html')).href;
 function logError(message){
   try{const dir=join(app.getPath('userData'),'logs');fs.mkdirSync(dir,{recursive:true});const file=join(dir,'desktop.log');if(fs.existsSync(file)&&fs.statSync(file).size>1024*1024)fs.renameSync(file,join(dir,'desktop.previous.log'));fs.appendFileSync(file,new Date().toISOString()+' '+String(message).slice(0,8000)+'\n');}catch{}
 }
 
-// Node HTTP goes directly to loopback, independently of the Windows proxy.
+// Node HTTP goes directly to loopback, independently of the system proxy.
 function request(path, method = 'GET', authenticated = true) {
   return new Promise((resolve, reject) => {
     const req = http.request(base + path, { method, headers: authenticated ? {'x-librium-token': token} : {} }, res => {
@@ -39,10 +50,13 @@ function request(path, method = 'GET', authenticated = true) {
 async function connect() {
   const html = await request('/', 'GET', false);
   const match = html.match(/const token\s*=\s*'([a-f0-9-]+)'/);
-  if (!match || !html.includes('Librium')) throw Error('Порт 3000 занят другим приложением');
+  if (!match || !html.includes('Librium')) throw Error(`Порт ${UI_PORT} занят другим приложением`);
   token = match[1];
   const rows = JSON.parse(await request('/api/traffic'));
   if (!Array.isArray(rows)) throw Error('Неверный ответ ядра');
+  // An already running core may use another proxy port than our environment says: follow it, so the phone relay targets the real proxy.
+  const port = JSON.parse(await request('/api/info')).proxy_port;
+  if (Number.isInteger(port) && port !== mobile.corePort && !mobile.active) Object.assign(mobile, {corePort: port, proxyPort: port, certificatePort: certificatePort(port), controlPorts: [UI_PORT, port, certificatePort(port)]});
 }
 async function startCore() {
   try { await connect(); return; } catch (error) {
@@ -50,8 +64,9 @@ async function startCore() {
   }
   if(process.env.LIBRIUM_ATTACH_ONLY==='1')throw Error('Для проверки нужно запущенное Rust-ядро');
   childError='';
-  const binary = app.isPackaged ? join(process.resourcesPath, 'core/librium.exe') : join(__dirname, '../target/release/librium.exe');
-  child = spawn(binary, [], { windowsHide: true, stdio: ['ignore','ignore','pipe'] });
+  const name = process.platform === 'win32' ? 'librium.exe' : 'librium';
+  const binary = app.isPackaged ? join(process.resourcesPath, 'core', name) : join(__dirname, '../target/release', name);
+  child = spawn(binary, [], { windowsHide: true, stdio: ['ignore','ignore','pipe'], env: {...process.env, LIBRIUM_UI_PORT: String(UI_PORT), LIBRIUM_PROXY_PORT: String(PROXY_PORT)} });
   child.stderr.on('data', chunk => { childError = (childError + chunk).slice(-4000);logError(chunk); });
   child.on('error', error => { childError = error.message; });
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -59,14 +74,14 @@ async function startCore() {
     if (child.exitCode !== null || childError.includes('ENOENT')) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  throw Error(childError || 'Не удалось запустить Rust-ядро. Проверь порты 3000 и 8080.');
+  throw Error(childError || `Не удалось запустить Rust-ядро. Проверь порты ${UI_PORT} и ${PROXY_PORT}.`);
 }
 function validate(event) {
   if (!window || event.sender !== window.webContents || event.senderFrame?.url !== page) throw Error('Недопустимый источник');
 }
 ipcMain.handle('api', async (event, path, method) => {
   validate(event);
-  if (!(method === 'GET' && /^(?:traffic(?:\/\d+(?:\/ws(?:\?before=\d+)?)?)?|traffic-page\?q=[A-Za-z0-9%_.!~*'()-]+)$/.test(path)) && !(method === 'DELETE' && path === 'traffic')) throw Error('Недопустимая операция');
+  if (!(method === 'GET' && /^(?:info|traffic(?:\/\d+(?:\/ws(?:\?before=\d+)?)?)?|traffic-page\?q=[A-Za-z0-9%_.!~*'()-]+)$/.test(path)) && !(method === 'DELETE' && path === 'traffic')) throw Error('Недопустимая операция');
   try { const data = await request('/api/' + path, method); return data ? JSON.parse(data) : null; }
   catch (error) {
     if (error.message === 'API: 401' || error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET') {
@@ -108,9 +123,11 @@ else {
   app.on('second-instance', () => { if(window) { if(window.isMinimized()) window.restore(); window.focus(); } });
   app.whenReady().then(async () => {
     try {
+      if (startupError) throw startupError;
       await ensureCore();
       session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
-      window = new BrowserWindow({ width: 1540, height: 980, minWidth: 1040, minHeight: 680, title: 'Librium', icon: join(__dirname, 'assets', 'icon.ico'), backgroundColor: '#101216', autoHideMenuBar: true,
+      if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(join(__dirname, 'assets', 'icon.png'));
+      window = new BrowserWindow({ width: 1540, height: 980, minWidth: 1040, minHeight: 680, title: 'Librium', icon: join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'), backgroundColor: '#101216', autoHideMenuBar: true,
         webPreferences: { preload: join(__dirname,'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, spellcheck: false } });
       window.webContents.setWindowOpenHandler(() => ({action:'deny'}));
       window.webContents.on('render-process-gone',(_event,details)=>logError('Renderer stopped: '+JSON.stringify(details)));

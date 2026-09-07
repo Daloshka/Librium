@@ -1,13 +1,14 @@
 const {WebSocket,WebSocketServer}=require('ws');
 const {HttpProxyAgent}=require('http-proxy-agent');
 const http=require('node:http'),fs=require('node:fs'),assert=require('node:assert/strict');
-const get=(path,token)=>new Promise((resolve,reject)=>http.get('http://127.0.0.1:3000'+path,{headers:token?{'x-librium-token':token}:{}},r=>{let s='';r.on('data',c=>s+=c);r.on('end',()=>r.statusCode===200?resolve(s):reject(Error('HTTP '+r.statusCode)));}).on('error',reject));
+const UI_PORT=process.env.LIBRIUM_UI_PORT||3000,PROXY_PORT=process.env.LIBRIUM_PROXY_PORT||8080;
+const get=(path,token)=>new Promise((resolve,reject)=>http.get(`http://127.0.0.1:${UI_PORT}`+path,{headers:token?{'x-librium-token':token}:{}},r=>{let s='';r.on('data',c=>s+=c);r.on('end',()=>r.statusCode===200?resolve(s):reject(Error('HTTP '+r.statusCode)));}).on('error',reject));
 (async()=>{
  const server=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(r=>server.once('listening',r));
  server.on('connection',socket=>{socket.send('server welcome');socket.on('message',(data,binary)=>socket.send(data,{binary}));});
  try{
   const marker='librium-ws-test='+Date.now();
-  const client=new WebSocket(`ws://127.0.0.1:${server.address().port}/?${marker}`,{agent:new HttpProxyAgent('http://127.0.0.1:8080')});
+  const client=new WebSocket(`ws://127.0.0.1:${server.address().port}/?${marker}`,{agent:new HttpProxyAgent(`http://127.0.0.1:${PROXY_PORT}`)});
   await new Promise((resolve,reject)=>{
    const timeout=setTimeout(()=>{client.terminate();reject(Error('WebSocket test timed out'));},10000);
    let text=false,binary=false;

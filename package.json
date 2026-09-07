@@ -8,8 +8,10 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "start": "electron .",
-    "build:core": "powershell -NoProfile -File scripts/build-core.ps1",
-    "dist": "npm run build:core && electron-builder --win portable",
+    "build:core": "node scripts/build-core.cjs",
+    "dist": "npm run build:core && electron-builder",
+    "dist:win": "npm run build:core && electron-builder --win",
+    "dist:mac": "npm run build:core && electron-builder --mac",
     "test:ui": "node scripts/ui-smoke.cjs",
     "test:electron": "electron scripts/electron-smoke.cjs"
   },
@@ -31,15 +33,37 @@
       "ui/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "target/release/librium.exe",
-        "to": "core/librium.exe"
-      }
-    ],
     "win": {
+      "target": "portable",
       "signAndEditExecutable": true,
-      "icon": "desktop/assets/icon.ico"
+      "icon": "desktop/assets/icon.ico",
+      "extraResources": [
+        {
+          "from": "target/release/librium.exe",
+          "to": "core/librium.exe"
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "desktop/assets/icon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "darkModeSupport": true,
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "target/release/librium",
+          "to": "core/librium"
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "asar": true
   }
