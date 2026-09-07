@@ -53,7 +53,9 @@ async function initSessions(){
  $('session-state').textContent='Автосохранение';
 }
 function el(tag, text, cls) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; }
-function bytes(n) { return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`; }
+function bytes(n) { if (n < 1024) return `${n} B`; let value = n / 1024, unit = 0; while (value >= 1024 && unit < 2) { value /= 1024; unit++; } return `${value.toFixed(value < 100 ? 1 : 0)} ${['KB', 'MB', 'GB'][unit]}`; }
+function clock(ms) { return ms ? new Date(ms).toLocaleTimeString('ru-RU') : ''; }
+function stamp(ms) { return ms ? new Date(ms).toLocaleString('ru-RU') : ''; }
 function toast(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 2400); }
 let lastReportedError='';
 function showError(error) { $('error').hidden = !error; $('error').textContent = error?.message || '';if(error && error.message!==lastReportedError){lastReportedError=error.message;window.librium?.reportError?.(error.stack||error.message).catch(()=>{});} }
@@ -101,7 +103,8 @@ function renderRows() {
     const url = splitUrl(row.url), urlCell = el('td'); urlCell.append(el('span', url.host, 'host'), el('span', url.path, 'path')); urlCell.title = row.url;
     const methodCell = el('td'); methodCell.append(el('span', row.method, 'method-tag ' + row.method));
     const idCell = el('td', row.id, 'request-id'); idCell.title = String(row.id);
-    tr.append(idCell, methodCell, urlCell, el('td', row.status ?? '…', `status s${String(row.status)[0]}`), el('td', bytes(row.size), 'bytes'));
+    const timeCell = el('td', clock(row.time), 'bytes time'); timeCell.title = stamp(row.time);
+    tr.append(idCell, timeCell, methodCell, urlCell, el('td', row.status ?? '…', `status s${String(row.status)[0]}`), el('td', bytes(row.size), 'bytes'));
     tr.onclick = () => choose(row.id);
     tr.onkeydown = event => {
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(row.id); }
@@ -196,7 +199,7 @@ async function renderDetail() {
   selectionUrl.onclick=async()=>{try{if(window.librium)await window.librium.copy(current.summary.url);else await navigator.clipboard.writeText(current.summary.url);toast('URL скопирован');}catch(error){showError(error);}};
   const open=el('button','↗','open-url');open.title='Открыть в браузере';open.setAttribute('aria-label','Открыть URL в браузере');
   open.onclick=async()=>{try{const url=new URL(current.summary.url);if(!['http:','https:'].includes(url.protocol))throw Error('Разрешены только HTTP и HTTPS адреса');if(window.librium)await window.librium.openUrl(url.href);else window.open(url.href,'_blank','noopener,noreferrer');}catch(error){showError(error);}};
-  $('selection').replaceChildren(el('span', '#' + current.summary.id, 'selection-id'),el('span',current.summary.method,'selection-method'),open, selectionUrl, el('span', `${current.summary.status ?? '…'} · ${current.summary.elapsed_ms ?? '…'} ms`, 'selection-time'));
+  $('selection').replaceChildren(el('span', '#' + current.summary.id, 'selection-id'),el('span',current.summary.method,'selection-method'),open, selectionUrl, el('span', `${current.summary.time ? stamp(current.summary.time) + ' · ' : ''}${current.summary.status ?? '…'} · ${current.summary.elapsed_ms ?? '…'} ms`, 'selection-time'));
   let matches = 0;
   await Promise.all(['request','response'].map(async side => {
     const node = paneNodes[side], payload = current[side], mode = modes[side];
