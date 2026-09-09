@@ -822,6 +822,7 @@ function renderFilterChips(){
   if($('status').value)add(t('chip.status',{value:$('status').selectedOptions[0].textContent}),()=>{$('status').value='';});
   filterRules.forEach((rule,index)=>add(LibriumFilters.label(rule),()=>filterRules.splice(index,1)));
   box.hidden=!box.children.length;
+  const active=box.querySelectorAll('.filter-chip').length;$('filters-count').textContent=active?String(active):'';$('filters-count').hidden=!active;
   if(box.children.length){box.prepend(el('span',t('chip.all')));const reset=el('button',t('chip.reset'),'quiet');reset.onclick=resetFilters;box.append(reset);
     const purge=el('button',t('chip.deleteMatching'),'quiet delete-matching');purge.onclick=deleteMatching;box.append(purge);}
 }
