@@ -1150,3 +1150,7 @@ document.querySelectorAll('[data-sort]').forEach(button=>button.onclick=()=>{con
 $('lang').onclick=async()=>{const next=LibriumI18n.lang==='ru'?'en':'ru';try{localStorage.setItem('librium-lang',next);}catch{}try{await window.librium?.setLanguage?.(next);}catch{}if(window.librium?.reload)window.librium.reload().catch(()=>location.reload());else location.reload();};
 Promise.resolve(window.librium?.setLanguage?.(LibriumI18n.lang)).catch(()=>{});
 renderDetail();loadInfo().catch(showError);initSessions().then(refresh).catch(showError);
+
+// Dropdown menus (⋯) close after a choice, on a click elsewhere and on Escape.
+document.addEventListener('click',event=>{document.querySelectorAll('details.dropdown[open]').forEach(menu=>{if(!menu.contains(event.target)||event.target.closest('.menu button'))menu.removeAttribute('open');});});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('details.dropdown[open]').forEach(menu=>menu.removeAttribute('open'));});
