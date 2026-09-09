@@ -33,12 +33,25 @@ Image preview in a response (synthetic demo traffic):
 
 - **Free and open source.** MIT license, no account, no subscription, no cloud sync and no telemetry — the captured traffic stays on your machine.
 - **The same tool on Windows and macOS.** One interface, one set of shortcuts, one history format.
-- **HTTP/1.1 and HTTP/2** through an explicit proxy; HTTPS with a local CA that you install yourself.
-- **History in SQLite**, kept on disk and never trimmed by request count. Sort the whole history by ID, method, host and path, status or size, and page through it.
-- **Request and response side by side**: headers, text, JSON, hex, search inside bodies and copy URL.
-- **Search, quick filters and a filter builder** for HTTP and WebSocket, saved as named sessions with autosave.
+- **HTTP/1.1 and HTTP/2** through an explicit proxy; HTTPS with a local CA. One button adds it to the trust store of your user account on macOS and Windows; the system asks for confirmation.
+- **History in SQLite**, kept on disk and never trimmed by request count. Sort the whole history by ID, method, host and path, status, size or duration, page through it, or switch on “Follow” to open each new request as it arrives.
+- **Request and response side by side**: headers, query and form parameters, cookies, text, a collapsible JSON tree, hex, search inside bodies and copy URL.
+- **Search, quick filters and a filter builder** for HTTP and WebSocket, saved as named sessions with autosave. Noisy hosts (`*.google-analytics.com`, `telemetry.*`) can be kept out of the history altogether, from Settings (the gear in the rail) or a row's right-click menu. The search box takes conditions next to plain words: `host:api status:4xx method:post type:json size:>1mb -path:/static`.
 - **Media, not just text.** PNG, SVG and other images with 1:1 zoom and drag, an audio player, and saving captured media to a file.
 - **WebSocket in both directions**: text and binary frames with timing and per-connection history.
+- **HAR in and out.** Export the requests matching the current filters, or the whole history, with decompressed bodies and WebSocket frames (opens in Chrome DevTools and other HAR viewers); import a HAR from a browser, a colleague or another tool into the history (or drop the file onto the window), WebSocket frames included. Credentials (Authorization, Cookie, Set-Cookie, API keys) are masked by default; the switch is in the Filters dialog. The request pane also copies any request as a curl command.
+- **Summary of the current search.** The Σ button shows totals, error share, mocked answers, bytes, median / 95th percentile / max latency, status classes, methods and the busiest hosts; a click on a host keeps only it in the search.
+- **Copy as code.** A row's menu copies the request as cURL, as a browser `fetch()` call or as Python `requests`.
+- **Stars and notes.** Star an exchange from the inspector or the row menu and write a note next to it; `is:starred` and `note:` find them again.
+- **New request.** “+ Request” opens the editor empty: pick a method, type the URL, headers and body (or paste a cURL command into the address field and let it fill everything), and send it through the proxy; the editor remembers the last request you composed; the exchange lands in the history like any other.
+- **Recording toggle.** “● Recording” in the toolbar stops writing the history while traffic keeps flowing and the rules keep applying; nothing is held either. On again after a restart.
+- **Intercept.** Hold requests to chosen hosts, methods and paths before they leave the proxy: look at them (several held ones line up as tabs), edit the method, URL, headers and body, then forward or drop. Responses too, when asked: status, headers and body (shown decoded; an edited body goes out uncompressed), and a held response can be saved as a mock. Off by default; anything held goes on unchanged after ten minutes without a decision.
+- **Mocks.** “Mock this response” in a row's menu turns a recorded exchange into a canned answer: the proxy serves it for matching host, path and method (a path pattern with `?` also matches the query) without asking the origin, and records the exchange as usual (with an `x-librium-mock` header and a “mock” tag in the list). Edit, switch off or delete mocks in Settings.
+- **Header rewrites.** Set or remove request headers for matching hosts (optionally narrowed to a path pattern, `api.example.com/v1/*`) before they leave the proxy, and response headers before the client sees them (drop a CSP, allow CORS, disable caching): inject a token, drop caching headers, spoof a User-Agent. The history shows what was actually sent.
+- **Slow network.** Add a delay to the responses of matching hosts (optionally a path pattern; up to a minute), mocks included, to watch an app on a bad connection; the recorded duration includes it.
+- **Rules as a file.** Settings can export the ignored hosts, header rewrites, delays and mocks as one JSON file and import such a file back (it replaces the lists it contains; dropping the file onto the window works too), so a team shares the same mocks.
+- **Active rules pill.** While mocks, delays or header rewrites are on, the header shows an amber pill with their counts; click it to open Settings, so a forgotten rule never answers in silence.
+- **Resend a request, as is or edited.** One button sends a captured request again through the proxy; another opens it for editing first: method, address, headers and body. The replay lands in the history next to the original.
 - **Phone capture over your home Wi-Fi**, opt-in: LAN access is off by default and the core listens on loopback only.
 - **Works behind a VPN.** One button opens a separate Chrome profile that goes through Librium even when a tunnel swallows the system proxy.
 - **Interface in English and Russian**, switched in the app with one click.
@@ -144,6 +157,47 @@ Rust core only: `./run.sh` (macOS and Linux), `./run.ps1` (Windows) or `cargo ru
 New requests appear at the top by default. Click a column header to change the sorting.
 
 The interface speaks English and Russian: the **EN / RU** button at the bottom of the left rail switches the language and reloads the window. Librium picks your system language on the first run.
+
+### Search syntax
+
+Plain words match the ID, method, address, status and content type. Conditions narrow the list further; all of them apply at once, together with the quick filters and the filter builder. A right click on a row offers the same conditions for that row's host, path, method and status, plus copying its URL, resending it, comparing it line by line with the previously selected request, and deleting it from the history. “Delete matching” next to the condition chips removes everything the current conditions match, after a confirmation.
+
+| Condition | Meaning |
+| --- | --- |
+| `host:api` · `path:/v1/` · `url:token` | contains |
+| `host:=api.example.com` | exact value |
+| `-host:cdn` · `-path:/static` | does not contain |
+| `method:post` · `-method:get` | method equals / differs |
+| `status:404` · `status:4xx` · `status:>=400` · `status:<500` · `status:!=200` | status code or class |
+| `size:>1mb` · `size:<=20kb` · `id:>1000` | size and ID with units and comparisons |
+| `type:json` · `type:image` | content type contains |
+| `body:token` · `-body:error` | the request or response body text contains (the first 16 KiB of each, decoded from gzip, deflate and brotli; requests captured before this version have no body text) |
+| `header:set-cookie` · `header:"cache-control: no-store"` | a request or response header line contains (`name: value`, lowercase, the first 8 KiB of the lines) |
+| `frame:ping` · `-frame:error` | WebSocket connections with a frame whose text contains (the first 64 KiB of each frame) |
+| `is:error` · `-is:error` · `is:pending` | failed or interrupted exchanges; exchanges without a response yet |
+| `is:starred` · `note:todo` | starred exchanges; the note contains (plain words search notes too) |
+| `is:mock` | exchanges answered by a mock instead of the origin |
+| `since:10m` · `since:2h` · `since:14:30` · `since:2026-09-08` · `until:2026-09-08 18:00` | request time: the last minutes, hours or days, a time today, or a local date and time |
+| `elapsed:>1s` · `elapsed:<200` | time to the first response byte (milliseconds, or seconds with `s`) |
+| `"two words"` | words kept together |
+
+Suggestions appear under the box as you type: the fields first, then values seen in the history (hosts, paths, methods, statuses, content types) and examples of the syntax. ↑ ↓ choose, Tab or Enter accepts, Esc closes the list. An empty box also lists the last eight searches you ran (Enter, or leaving the box, remembers one).
+
+### Keyboard
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl K` (`⌘ K` on macOS) | Focus the history search |
+| `Ctrl F` (`⌘ F`) | Focus the search inside the request and response |
+| `Ctrl I` (`⌘ I`) | Toggle intercept |
+| `Ctrl N` (`⌘ N`) | New request |
+| `Ctrl Shift M` (`⌘ ⇧ M`) | Mock the selected response |
+| `Ctrl ]` / `Ctrl [` (`⌘ ]` / `⌘ [`) | In the intercept panel: next / previous held request |
+| `?` | Keys and search syntax cheat sheet (also the `?` button in the rail) |
+| `Ctrl D` (`⌘ D`) | Star or unstar the selected request |
+| `Esc` | Clear the focused search box |
+| `↑` `↓` `Enter` | Move along the history and open a request |
+| `Ctrl Enter` (`⌘ Enter`) | Send from the “Edit and resend” dialog |
 
 ## HTTPS setup
 
@@ -252,6 +306,7 @@ The app passes these values to the core, so setting them once at startup is enou
 | macOS: “Librium is damaged” or “cannot be opened” | The build is not signed with an Apple Developer ID. Remove the quarantine: `xattr -dr com.apple.quarantine /Applications/Librium.app`, or press “Open Anyway” in System Settings → Privacy & Security after the refusal. |
 | The phone does not connect | Both devices on the same network, LAN access enabled, the computer address entered correctly, and the firewall allowing the connection. |
 | A `301` or `302` instead of an image | That is a redirect. Open the captured request for the address from `Location`: the image is in the final response. |
+| The header says “History is not being saved” | The core cannot write `history.sqlite3`: the disk is full, the file is read-only, or another program holds the database open in a write transaction. Traffic keeps flowing through the proxy meanwhile and is written once the problem is gone; the banner shows the SQLite error. |
 
 ## Storage and limits
 
@@ -265,8 +320,8 @@ The history lives in the data directory next to the CA and the SQLite WAL/SHM fi
 
 - The directory can be changed with `LIBRIUM_DATA_DIR`.
 - Filter sessions and logs live in Electron's data directory (`%APPDATA%\librium-desktop` on Windows, `~/Library/Application Support/librium-desktop` on macOS).
-- For ordinary HTTP bodies and for each WebSocket message the first 64 KiB are stored. For images and audio, up to 32 MiB. The client always receives the full data.
-- The history is written periodically and on a clean shutdown; after a crash the last changes may be missing.
+- For ordinary HTTP bodies and for each WebSocket message the first 64 KiB are stored. For images and audio, up to 32 MiB. The client always receives the full data. Bodies compressed with gzip, deflate, brotli or zstd are shown, saved and exported decoded; the Hex tab keeps the bytes as transmitted. The decoded text of the first 16 KiB of each body is also kept next to each exchange for `body:` searches.
+- The history is written every half second and on shutdown; the footer shows how much it takes on disk. Closing the app asks the core to finish writing before it exits; after a crash or a power loss the last moments may be missing.
 - HTTP/3 and QUIC, transparent interception of all system traffic and bypassing certificate pinning are not implemented. The client has to use the proxy and to trust the CA.
 
 Only use Librium on traffic you are allowed to inspect. The history can contain passwords, cookies and personal data: keep it out of repositories and public reports. More in [SECURITY.md](SECURITY.md).

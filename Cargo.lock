@@ -1051,6 +1051,8 @@ dependencies = [
  "anyhow",
  "axum",
  "base64 0.22.1",
+ "brotli",
+ "flate2",
  "http-body-util",
  "hudsucker",
  "hyper-tungstenite",

@@ -12,7 +12,7 @@
     "dist": "npm run build:core && electron-builder --publish never",
     "dist:win": "npm run build:core && electron-builder --win --publish never",
     "dist:mac": "npm run build:core && electron-builder --mac --publish never",
-    "test:ui": "node scripts/ui-smoke.cjs",
+    "test:ui": "node scripts/ui-smoke.cjs && node scripts/browser-smoke.cjs && node scripts/har-smoke.cjs && node scripts/ca-install-smoke.cjs",
     "test:electron": "electron scripts/electron-smoke.cjs"
   },
   "devDependencies": {

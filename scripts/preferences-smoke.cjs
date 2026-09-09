@@ -1,4 +1,5 @@
 process.env.LIBRIUM_ATTACH_ONLY='1';
+process.env.LIBRIUM_HEADLESS='1';
 const {app}=require('electron');
 const {resolve}=require('node:path');
 const fs=require('node:fs'),assert=require('node:assert/strict');
