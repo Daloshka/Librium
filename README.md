@@ -293,7 +293,7 @@ Windows, PowerShell:
 $env:LIBRIUM_PROXY_PORT=8088; npm start
 ```
 
-The app passes these values to the core, so setting them once at startup is enough. The current proxy address is shown in the app header.
+The app passes these values to the core, so setting them once at startup is enough. The current proxy address is shown in the status line at the bottom of the window.
 
 ## Troubleshooting
 
@@ -302,7 +302,7 @@ The app passes these values to the core, so setting them once at startup is enou
 | The history is empty | That the client really uses the proxy `127.0.0.1:8080`, and that active filters are not hiding requests. Starting Librium does not redirect the system's traffic on its own. |
 | HTTPS certificate error | That the client trusts the CA created by this copy of Librium. Some clients need the certificate file to be passed explicitly. |
 | `ECONNREFUSED 127.0.0.1:3000` | The Rust core is not running or has exited. When running from source, run `npm run build:core` and restart the app; check that port `3000` is free or set another one with `LIBRIUM_UI_PORT`. |
-| Port `8080` is taken by another app | Start with `LIBRIUM_PROXY_PORT=<port>` and use the same port in the client. The proxy address is shown in the app header. |
+| Port `8080` is taken by another app | Start with `LIBRIUM_PROXY_PORT=<port>` and use the same port in the client. The proxy address is shown in the status line at the bottom of the window. |
 | macOS: “Librium is damaged” or “cannot be opened” | The build is not signed with an Apple Developer ID. Remove the quarantine: `xattr -dr com.apple.quarantine /Applications/Librium.app`, or press “Open Anyway” in System Settings → Privacy & Security after the refusal. |
 | The phone does not connect | Both devices on the same network, LAN access enabled, the computer address entered correctly, and the firewall allowing the connection. |
 | A `301` or `302` instead of an image | That is a redirect. Open the captured request for the address from `Location`: the image is in the final response. |
