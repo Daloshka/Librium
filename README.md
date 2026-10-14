@@ -369,3 +369,6 @@ Third-party dependencies and the third-party images shown in demonstration mater
 Found a bug or have an idea — open an issue or send a pull request. For bugs, include the Librium version, the steps to reproduce and the expected result. Attach only anonymized examples, without cookies, tokens or personal traffic.
 
 Development and check instructions are in [CONTRIBUTING.md](CONTRIBUTING.md); guidance on handling sensitive data is in [SECURITY.md](SECURITY.md).
+
+
+<!-- small doc tweak -->
