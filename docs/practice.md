@@ -3,17 +3,17 @@
 [← Назад к индексу](../README.md) · Связано: [Сеть](network.md), [TCP handshake](basics/tcp-handshake.md), [Глоссарий](basics/protocols.md)
 
 Лестница из пяти ступеней от наблюдения к своему коду. Команды в разделах
-1 и 2 проверены на этой машине, вывод настоящий.
+1 и 2 проверены в примере, вывод приведён как пример.
 
 ---
 
-## Окружение на этой машине
+## Окружение в примере
 
 `openssl` есть, он идёт с Git for Windows, но его нет в PATH у PowerShell:
 
     C:\Program Files\Git\mingw64\bin\openssl.exe    OpenSSL 3.5.4
 
-**Как сделано на этой машине.** В PATH нельзя добавить один файл, только
+**Как сделано в примере.** В PATH нельзя добавить один файл, только
 папку, а добавлять `C:\Program Files\Git\mingw64\bin` целиком плохо: там
 лежат свои `curl.exe`, `git.exe` и десятки других утилит, они начнут
 перекрывать системные. Скопировать один `openssl.exe` тоже нельзя, он тянет
@@ -21,7 +21,7 @@
 
 Решение: своя папка для ярлыков, в ней один cmd-обёртка, папка в PATH.
 
-    C:\Users\Anonym\bin\openssl.cmd:
+    C:\Users\YOUR_USER\bin\openssl.cmd:
 
         @echo off
         "C:\Program Files\Git\mingw64\bin\openssl.exe" %*
@@ -84,10 +84,10 @@ Protocols → TLS → Pre-Master-Secret log filename.
     $r.ReadToEnd()
     $c.Close()
 
-Реальный вывод:
+Условный пример вывода:
 
-    Локальный конец:  [::ffff:172.19.0.1]:49424
-    Удалённый конец:  [::ffff:104.20.23.154]:80
+    Локальный конец:  [::ffff:192.0.2.10]:49424
+    Удалённый конец:  [::ffff:192.0.2.11]:80
     HTTP/1.1 200 OK
     Date: Sat, 05 Sep 2026 22:06:16 GMT
     Content-Type: text/html
@@ -99,7 +99,7 @@ Protocols → TLS → Pre-Master-Secret log filename.
 
 - **четвёрка TCP** из [handshake](basics/tcp-handshake.md#5-что-происходит-внутри-ос):
   локальный порт 49424 выбран ядром из эфемерного диапазона, удалённый 80 известен заранее;
-- адрес записан как `::ffff:104.20.23.154`, это IPv4 внутри IPv6-сокета;
+- адрес записан как `::ffff:192.0.2.11`, это IPv4 внутри IPv6-сокета;
 - HTTP это буквально текст, который вы напечатали руками;
 - `\r\n` обязательны, и пустая строка в конце тоже, она отделяет заголовки от тела.
 
@@ -110,7 +110,7 @@ Protocols → TLS → Pre-Master-Secret log filename.
 
 Реальный вывод, хвост:
 
-    Connecting to 104.20.23.154
+    Connecting to 192.0.2.11
     CONNECTION ESTABLISHED
     Protocol version: TLSv1.3
     Ciphersuite: TLS_AES_256_GCM_SHA384
@@ -131,7 +131,7 @@ Protocols → TLS → Pre-Master-Secret log filename.
 
     openssl s_client -connect example.com:443 -servername example.com -alpn h2,http/1.1
 
-Реальный вывод:
+Условный пример вывода:
 
     Certificate chain
      0 s:CN=example.com
@@ -158,11 +158,11 @@ Protocols → TLS → Pre-Master-Secret log filename.
 
     Resolve-DnsName example.com -Type A_AAAA
 
-Реальный вывод:
+Условный пример вывода:
 
     Name        Type IPAddress
-    example.com    A 104.20.23.154
-    example.com    A 172.66.147.243
+    example.com    A 192.0.2.11
+    example.com    A 192.0.2.12
 
 Два адреса, оба Cloudflare. Клиент выберет любой. С настроенным прокси
 этот запрос делает не браузер, а прокси.
@@ -172,7 +172,7 @@ Protocols → TLS → Pre-Master-Secret log filename.
     try { [Net.Sockets.TcpClient]::new().Connect('127.0.0.1', 9) }
     catch { $_.Exception.InnerException.SocketErrorCode }
 
-Реальный вывод:
+Условный пример вывода:
 
     ConnectionRefused
 
@@ -185,12 +185,12 @@ Protocols → TLS → Pre-Master-Secret log filename.
     Get-NetTCPConnection -State Established -RemotePort 443 |
       Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, OwningProcess
 
-Реальный вывод:
+Условный пример вывода:
 
     LocalAddress LocalPort RemoteAddress RemotePort
-    192.168.0.14     65515 185.253.117.7        443
-    172.19.0.1       65514 160.79.104.10        443
-    192.168.0.14     65502 185.253.117.7        443
+    192.0.2.13     65515 192.0.2.14        443
+    192.0.2.10       65514 192.0.2.15        443
+    192.0.2.13     65502 192.0.2.14        443
 
 Каждая строка это одна четвёрка. Локальные порты идут подряд из
 эфемерного диапазона, к одному серверу открыто несколько соединений

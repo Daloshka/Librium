@@ -1,0 +1,30 @@
+{
+  "cdp_valid": [
+    "{\"id\":2,\"method\":\"Runtime.evaluate\",\"params\":{\"id\":1,\"id\":2}}",
+    "{\"id\":2,\"result\":{\"error\":{\"code\":1,\"code\":2}}}",
+    "{\"id\":2,\"error\":{\"code\":-1,\"message\":\"bad\",\"data\":{\"x\":1,\"x\":2}}}",
+    "{\"id\":2,\"Id\":1,\"method\":\"Runtime.evaluate\",\"params\":{\"quoted\":\"id\\\":1,\\\"id\\\":2\"}}"
+  ],
+  "cdp_invalid": [
+    "{\"id\":1,\"id\":2,\"method\":\"Runtime.evaluate\"}",
+    "{\"id\":1,\"i\\u0064\":2,\"result\":{}}",
+    "{\"method\":\"Wrong.x\",\"method\":\"Runtime.ready\"}",
+    "{\"id\":2,\"sessionId\":\"a\",\"sessionId\":\"b\",\"result\":{}}",
+    "{\"id\":2,\"result\":1,\"result\":2}",
+    "{\"id\":2,\"params\":{},\"params\":{},\"method\":\"Runtime.evaluate\"}",
+    "{\"id\":2,\"extra\":1,\"extra\":2,\"result\":{}}",
+    "{\"id\":2,\"error\":{\"code\":-1,\"code\":-2,\"message\":\"bad\"}}",
+    "{\"id\":2,\"error\":{\"code\":-1,\"message\":\"a\",\"messa\\u0067e\":\"b\"}}"
+  ],
+  "jsonrpc_valid": [
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"load\",\"params\":{\"id\":1,\"id\":2}}",
+    "[{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"x\":1,\"x\":2}},{\"jsonrpc\":\"2.0\",\"method\":\"notice\"}]",
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-1,\"message\":\"bad\",\"data\":{\"x\":1,\"x\":2}}}"
+  ],
+  "jsonrpc_invalid": [
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"id\":2,\"method\":\"load\"}",
+    "{\"jsonrpc\":\"2.0\",\"jsonrpc\":\"2.0\",\"id\":2,\"result\":0}",
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-1,\"c\\u006fde\":-2,\"message\":\"bad\"}}",
+    "[{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":0},{\"jsonrpc\":\"2.0\",\"method\":\"x\",\"method\":\"y\",\"id\":3}]"
+  ]
+}

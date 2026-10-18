@@ -1,0 +1,34 @@
+process.env.LIBRIUM_ATTACH_ONLY='1';
+const {app,dialog}=require('electron'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{once}=require('node:events');
+const profile=fs.mkdtempSync(path.resolve('target','ws-role-ui-'));app.setPath('userData',profile);dialog.showErrorBox=(title,message)=>{console.error(title,message);app.exit(1);};
+let phase='desktop startup';const checkpoint=label=>{phase=label;console.log('WS role: '+label);};
+const timer=setTimeout(()=>{console.error('WS role integration timed out at '+phase);app.exit(1);},25000),pause=()=>new Promise(resolve=>setTimeout(resolve,25));
+app.on('browser-window-created',(_event,window)=>{window.hide();window.webContents.setBackgroundThrottling(false);window.webContents.once('did-finish-load',async()=>{try{
+ checkpoint('creating fixtures');
+ const html=await(await fetch('http://127.0.0.1:3000/')).text(),token=html.match(/const token\s*=\s*'([^']+)'/)[1],headers={'x-librium-token':token,'content-type':'application/json'};
+ const marker='ws-role-'+Date.now(),body={headers:[],text:'',base64:'',size:0,truncated:false,complete:true};
+ const capture=async(options={})=>{const websocket=options.websocket!==false,payload={...body,headers:options.headers||[]};return fetch('http://127.0.0.1:3000/api/capture',{method:'POST',headers,body:JSON.stringify({event:'exchange',websocket,exchange:{summary:{id:0,source:options.source||'cdp_node',time:Date.now(),method:'GET',url:(options.url||'wss://fixture.invalid/same')+'?'+marker,status:Object.hasOwn(options,'status')?options.status:(websocket?101:200),elapsed_ms:0,size:0,error:null,...(options.role?{ws_role:options.role}:{})},request:payload,response:body}})});};
+ const ids=[];for(const role of ['client','server',null]){const response=await capture({role,headers:role?[]:[['x-librium-ws-role','server']]});assert.equal(response.status,200);ids.push((await response.json()).id);}
+ const failed=await capture({websocket:false,url:'https://fixture.invalid/upgrade-refused',source:'external',status:403,headers:[['Upgrade','websocket']]});assert.equal(failed.status,200);ids.push((await failed.json()).id);
+ const pending=await capture({websocket:false,status:null,url:'wss://fixture.invalid/unconfirmed',source:'external'});assert.equal(pending.status,200);
+ for(let n=0;n<600;n++){if(n%100===0)checkpoint('creating HTTP fixture '+n+' / 600');const response=await capture({websocket:false,url:'https://fixture.invalid/http/'+n,source:'external'});assert.equal(response.status,200);}
+ assert.equal((await capture({role:'unknown'})).status,422);assert.equal((await capture({role:'server',websocket:false,url:'https://fixture.invalid/not-ws'})).status,400);
+ checkpoint('API role filters');
+ const request=async(query)=>fetch('http://127.0.0.1:3000/api/traffic-page?q='+encodeURIComponent(JSON.stringify({query:marker,...query})),{headers});assert.equal((await request({ws_role:'invalid'})).status,400);
+ for(const [role,count]of [['client',1],['server',1],['unknown',3]]){const page=await(await request({ws_role:role})).json();assert.equal(page.matched,count);assert.equal(page.total>=605,true);}
+ const run=script=>window.webContents.executeJavaScript(script),reach=async(script,label)=>{phase=label;for(let n=0;n<150;n++){if(await run(script)){checkpoint(label);return;}await pause();}throw Error('Timed out: '+label);};
+ const set=async(id,value)=>run(`{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input'));}`);
+ await set('filter',marker);await reach(`document.querySelectorAll('#rows tr').length===500`,'recent HTTP page');assert.equal(await run(`Boolean(document.querySelector('[data-id="${ids[1]}"]'))`),false);
+ await set('traffic-ws-role','server');await reach(`document.querySelectorAll('#rows tr').length===1&&Boolean(document.querySelector('[data-id="${ids[1]}"]'))`,'old server row');assert.match(await run(`document.querySelector('#filter-chips').textContent`),/Роль WS:/);assert.match(await run(`document.querySelector('#rows .ws-role-tag').textContent`),/сервер/);
+ await run(`document.querySelector('[data-id="${ids[1]}"]').click()`);await reach(`document.querySelector('#selection').textContent.includes('WS · сервер')`,'server role badge');
+ await set('traffic-type','http');await reach(`document.querySelector('#count').textContent.startsWith('0 /')`,'role and HTTP intersect');await set('traffic-type','');
+ await set('traffic-source','external');await reach(`document.querySelector('#count').textContent.startsWith('0 /')`,'source intersection');await set('traffic-source','');await set('traffic-ws-role','unknown');await reach(`document.querySelectorAll('#rows tr').length===3`,'unknown role legacy / failed / unconfirmed WS');assert.equal(await run(`Boolean(document.querySelector('[data-id="${ids[2]}"]'))`),true,'legacy header must not manufacture known role');
+ await set('status','4');await reach(`document.querySelectorAll('#rows tr').length===1&&Boolean(document.querySelector('[data-id="${ids[3]}"]'))`,'unknown refused upgrade');await set('status','');await set('traffic-ws-role','server');await reach(`document.querySelectorAll('#rows tr').length===1`,'server restore');
+ checkpoint('reloading renderer');
+ const loaded=once(window.webContents,'did-finish-load');window.webContents.reload();await loaded;await reach(`document.querySelector('#traffic-ws-role').value==='server'&&Boolean(document.querySelector('[data-id="${ids[1]}"]'))`,'persisted role session');
+ const sessions=await run(`window.librium.loadFilterSessions()`);assert.equal(sessions.sessions.find(s=>s.id===sessions.activeId).wsRole,'server');
+ checkpoint('minimum-window view');window.setSize(1100,800);await pause();await run(`document.querySelector('[data-id="${ids[1]}"]').click()`);await reach(`document.querySelector('#selection').textContent.includes('WS · сервер')`,'selection after reload');checkpoint('capturing preview');const preview=await window.webContents.capturePage();assert.equal(preview.isEmpty(),false);fs.writeFileSync('target/ws-role-filter-preview.png',preview.toPNG());
+ await run(`Array.from(document.querySelectorAll('.filter-chip')).find(node=>node.textContent.startsWith('Роль WS:')).click()`);await reach(`document.querySelector('#traffic-ws-role').value===''&&document.querySelectorAll('#rows tr').length===500`,'role chip reset');
+ const summary=await(await fetch(`http://127.0.0.1:3000/api/traffic/${ids[1]}/ws-summary`,{headers})).json();assert.equal(summary.summary.ws_role,'server');
+ console.log('PASS: typed client / server / legacy unknown WS roles, global history filter beyond recent HTTP page, HTTP / source / status intersections, badges, saved sessions / reload and chip reset');clearTimeout(timer);app.quit();
+ }catch(error){console.error(error);clearTimeout(timer);app.exit(1);}});});require('../desktop/main.cjs');

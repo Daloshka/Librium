@@ -1,0 +1,313 @@
+{
+  "valid": [
+    [
+      {
+        "type": "uint8",
+        "offset": 1,
+        "endian": "le",
+        "value": "255"
+      },
+      "00ff"
+    ],
+    [
+      {
+        "type": "int8",
+        "offset": 0,
+        "endian": "le",
+        "value": "-128"
+      },
+      "80"
+    ],
+    [
+      {
+        "type": "uint16",
+        "offset": 2,
+        "endian": "be",
+        "value": "258"
+      },
+      "ffff0102"
+    ],
+    [
+      {
+        "type": "int16",
+        "offset": 0,
+        "endian": "le",
+        "value": "-2"
+      },
+      "feff"
+    ],
+    [
+      {
+        "type": "uint32",
+        "offset": 0,
+        "endian": "le",
+        "value": "4294967295"
+      },
+      "ffffffff"
+    ],
+    [
+      {
+        "type": "int32",
+        "offset": 0,
+        "endian": "be",
+        "value": "-2147483648"
+      },
+      "80000000"
+    ],
+    [
+      {
+        "type": "uint64",
+        "offset": 0,
+        "endian": "le",
+        "value": "18446744073709551615"
+      },
+      "ffffffffffffffff"
+    ],
+    [
+      {
+        "type": "int64",
+        "offset": 0,
+        "endian": "be",
+        "value": "-9223372036854775808"
+      },
+      "8000000000000000"
+    ],
+    [
+      {
+        "type": "float32",
+        "offset": 0,
+        "endian": "le",
+        "value": "0.10000000149011612"
+      },
+      "cdcccc3d"
+    ],
+    [
+      {
+        "type": "float64",
+        "offset": 0,
+        "endian": "be",
+        "value": "1.25"
+      },
+      "3ff4000000000000"
+    ],
+    [
+      {
+        "type": "float32",
+        "offset": 0,
+        "endian": "le",
+        "value": "NaN"
+      },
+      "0100807f"
+    ],
+    [
+      {
+        "type": "float64",
+        "offset": 0,
+        "endian": "be",
+        "value": "NaN"
+      },
+      "7ff0000000000001"
+    ],
+    [
+      {
+        "type": "float64",
+        "offset": 0,
+        "endian": "le",
+        "value": "-0"
+      },
+      "0000000000000080"
+    ],
+    [
+      {
+        "type": "float32",
+        "offset": 0,
+        "endian": "be",
+        "value": "Infinity"
+      },
+      "7f800000"
+    ],
+    [
+      {
+        "type": "float64",
+        "offset": 0,
+        "endian": "le",
+        "value": "-Infinity"
+      },
+      "000000000000f0ff"
+    ],
+    [
+      {
+        "type": "bytes",
+        "offset": 1,
+        "endian": "le",
+        "length": 3,
+        "value": "00 ff 2a"
+      },
+      "7700ff2a"
+    ],
+    [
+      {
+        "type": "utf8",
+        "offset": 0,
+        "endian": "le",
+        "length": 6,
+        "value": "﻿я\u0000"
+      },
+      "efbbbfd18f00"
+    ],
+    [
+      {
+        "type": "float32",
+        "offset": 0,
+        "endian": "be",
+        "value": "NaN"
+      },
+      "7f800001"
+    ],
+    [
+      {
+        "type": "float64",
+        "offset": 0,
+        "endian": "le",
+        "value": "NaN"
+      },
+      "010000000000f0ff"
+    ],
+    [
+      {
+        "type": "uint64",
+        "offset": 0,
+        "endian": "be",
+        "value": "9007199254740993"
+      },
+      "0020000000000001"
+    ],
+    [
+      {
+        "type": "float32",
+        "offset": 0,
+        "endian": "be",
+        "value": "0.10000000149011612"
+      },
+      "3dcccccd"
+    ],
+    [
+      {
+        "type": "float64",
+        "offset": 0,
+        "endian": "le",
+        "value": "1.25"
+      },
+      "000000000000f43f"
+    ]
+  ],
+  "invalid": [
+    {
+      "type": "uint8",
+      "offset": 65536,
+      "endian": "le",
+      "value": "1"
+    },
+    {
+      "type": "uint8",
+      "offset": -1,
+      "endian": "le",
+      "value": "1"
+    },
+    {
+      "type": "uint8",
+      "offset": 0,
+      "endian": "native",
+      "value": "1"
+    },
+    {
+      "type": "uint8",
+      "offset": 0,
+      "endian": "le",
+      "value": "256"
+    },
+    {
+      "type": "uint8",
+      "offset": 0,
+      "endian": "le",
+      "value": "01"
+    },
+    {
+      "type": "uint64",
+      "offset": 0,
+      "endian": "le",
+      "value": "18446744073709551616"
+    },
+    {
+      "type": "int64",
+      "offset": 0,
+      "endian": "le",
+      "value": "-9223372036854775809"
+    },
+    {
+      "type": "uint16",
+      "offset": 0,
+      "endian": "le",
+      "length": 2,
+      "value": "1"
+    },
+    {
+      "type": "float32",
+      "offset": 0,
+      "endian": "le",
+      "value": "1e400"
+    },
+    {
+      "type": "float64",
+      "offset": 0,
+      "endian": "le",
+      "value": "nan"
+    },
+    {
+      "type": "float64",
+      "offset": 0,
+      "endian": "le",
+      "value": " 1"
+    },
+    {
+      "type": "bytes",
+      "offset": 0,
+      "endian": "le",
+      "length": 0,
+      "value": ""
+    },
+    {
+      "type": "bytes",
+      "offset": 0,
+      "endian": "le",
+      "length": 2,
+      "value": "ff"
+    },
+    {
+      "type": "utf8",
+      "offset": 0,
+      "endian": "le",
+      "length": 1,
+      "value": "я"
+    },
+    {
+      "type": "utf8",
+      "offset": 0,
+      "endian": "le",
+      "value": "x"
+    },
+    {
+      "type": "code",
+      "offset": 0,
+      "endian": "le",
+      "value": "1"
+    },
+    {
+      "type": "uint8",
+      "offset": 0,
+      "endian": "le",
+      "value": "1",
+      "code": "execute"
+    }
+  ]
+}

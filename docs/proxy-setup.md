@@ -113,7 +113,7 @@ Windows Update, часть PowerShell-командлетов, некоторые
         if (shExpMatch(host, "*.target-app.com")) {
             return "PROXY 127.0.0.1:8080";
         }
-        if (isInNet(host, "10.0.0.0", "255.0.0.0")) {
+        if (isInNet(host, "192.0.2.10", "192.0.2.11")) {
             return "DIRECT";
         }
         return "DIRECT";

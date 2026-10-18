@@ -1,0 +1,17 @@
+{
+  "valid": [
+    ["", []],
+    ["089601", [{"offset":0,"field":1,"wire":"VARINT","value":"150"}]],
+    ["120774657374696e67", [{"offset":0,"field":2,"wire":"LEN","hex":"74657374696e67","utf8":"testing"}]],
+    ["08010802", [{"offset":0,"field":1,"wire":"VARINT","value":"1"},{"offset":2,"field":1,"wire":"VARINT","value":"2"}]],
+    ["08ffffffffffffffffff01", [{"offset":0,"field":1,"wire":"VARINT","value":"18446744073709551615"}]],
+    ["110102030405060708", [{"offset":0,"field":2,"wire":"I64","hex":"0102030405060708"}]],
+    ["1d01000000", [{"offset":0,"field":3,"wire":"I32","hex":"01000000"}]],
+    ["0a02ff00", [{"offset":0,"field":1,"wire":"LEN","hex":"ff00"}]],
+    ["0a00", [{"offset":0,"field":1,"wire":"LEN","hex":"","utf8":""}]],
+    ["0a03efbbbf", [{"offset":0,"field":1,"wire":"LEN","hex":"efbbbf","utf8":"﻿"}]],
+    ["0b10020c", [{"offset":0,"field":1,"wire":"SGROUP","fields":[{"offset":1,"field":2,"wire":"VARINT","value":"2"}]}]],
+    ["f8ffffff0f00", [{"offset":0,"field":536870911,"wire":"VARINT","value":"0"}]]
+  ],
+  "invalid": ["00","0e","0f","08","0880","08ffffffffffffffffff02","0a02ff","0b","0c","0b14","0b0b0c","110102","1d0102","808080801000"]
+}

@@ -1,0 +1,24 @@
+{
+  "valid": [
+    ["42[\"event\",{\"message\":\"other\"}]", "event"],
+    ["42/admin,17[\"event\",{}]", "event"],
+    ["42/,0[\"\"]", ""],
+    ["451-/files,99[\"upload\",{\"_placeholder\":true,\"num\":0}]", "upload"],
+    ["42[\"событие\\u002fтест\",null]", "событие/тест"],
+    ["42[9007199254740993,{}]", "9007199254740993"],
+    ["42[1.00e+200]", "1.00e+200"],
+    ["42[-0]", "-0"],
+    ["42[\"<img src=x onerror=alert(1)>\"]", "<img src=x onerror=alert(1)>"],
+    ["42[\"event\",{\"n\":1e400}]", "event"]
+  ],
+  "invalid": [
+    "42", "42[]", "42[null]", "42[true]", "42[{}]", "42[[]]",
+    "42[\"connect\"]", "42[\"connect_error\"]", "42[\"disconnect\"]",
+    "42[\"disconnecting\"]", "42[\"newListener\"]", "42[\"removeListener\"]",
+    "42[\"event\"] garbage", "42[\"event\",]", "42[broken", "42/admin[\"event\"]",
+    "42-1[\"event\"]", "42+1[\"event\"]", "42x[\"event\"]",
+    "45[\"event\"]", "450-[\"event\"]", "45-1-[\"event\"]", "451.5-[\"event\"]",
+    "43[\"event\"]", "461-[\"event\"]", "40{\"event\":true}", "2", "2[\"event\"]",
+    "[\"event\"]", " 42[\"event\"]", "42[NaN]"
+  ]
+}

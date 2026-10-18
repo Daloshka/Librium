@@ -1,0 +1,15 @@
+{
+  "valid": [
+    ["4217[\"event\"]", "17", "/", true, false],
+    ["43/admin,17[]", "17", "/admin", false, false],
+    ["43/admin,0017[\"ok\",{}]", "17", "/admin", false, false],
+    ["430[]", "0", "/", false, false],
+    ["42000[\"event\"]", "0", "/", true, false],
+    ["43/namespace,9007199254740993[\"ok\"]", "9007199254740993", "/namespace", false, false],
+    ["451-/files,9[\"upload\",{\"_placeholder\":true,\"num\":0}]", "9", "/files", true, true],
+    ["461-/files,9[{\"_placeholder\":true,\"num\":0}]", "9", "/files", false, true],
+    ["43[]", null, "/", false, false],
+    ["42[\"event\"]", null, "/", true, false]
+  ],
+  "invalid": ["43", "43/admin,17{}", "43/admin,17null", "43/admin,17[bad]", "43/admin,17[]tail", "43/admin17[]", "43-1[]", "43+1[]", "460-17[]", "46-1-17[]", "46x-17[]", "461-17{}", "461.2-17[]", "42[]", "42[true]", "42[\"connect\"]", "44[\"error\"]"]
+}

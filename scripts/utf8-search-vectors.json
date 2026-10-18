@@ -1,0 +1,11 @@
+[
+  {"hex":"d09fd180d0b8d0b2d0b5d182","truncated":false,"text":"Привет"},
+  {"hex":"efbbbf70696e67","truncated":false,"text":"ping"},
+  {"hex":"70696e67f09f9880","truncated":false,"text":"ping😀"},
+  {"hex":"70696e67f09f","truncated":false,"text":null},
+  {"hex":"70696e67f09f","truncated":true,"text":"ping"},
+  {"hex":"70696e67ff","truncated":true,"text":null},
+  {"hex":"70696e67ffc2","truncated":true,"text":null},
+  {"hex":"efbb","truncated":true,"text":""},
+  {"hex":"","truncated":false,"text":""}
+]

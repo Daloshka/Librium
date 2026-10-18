@@ -1,0 +1,48 @@
+process.env.LIBRIUM_ATTACH_ONLY='1';
+const {app,dialog}=require('electron'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const {CdpCapture}=require('../desktop/cdp.cjs');const collector=new CdpCapture({ingest:async()=>({})});collector.sessions.set('long',{title:'😀'.repeat(257)});assert.equal(Array.from(collector.targetLabel('long')).length,256);assert.equal(Buffer.byteLength(collector.targetLabel('long')),1024);collector.sessions.set('blank',{title:'   '});assert.equal(collector.targetLabel('blank'),'Electron / Chromium');collector.sessions.set('broken',{title:'\ud800'});assert.equal(collector.targetLabel('broken'),'\ufffd');
+const profile=fs.mkdtempSync(path.resolve('target/capture-target-ui-'));app.setPath('userData',profile);
+dialog.showErrorBox=(title,message)=>{console.error(title,message);app.exit(1);};
+const deadline=setTimeout(()=>{console.error('Capture target UI timed out');app.exit(1);},30000),delay=()=>new Promise(resolve=>setTimeout(resolve,20));
+app.on('browser-window-created',(_event,window)=>{
+ window.hide();window.webContents.setBackgroundThrottling(false);
+ window.webContents.once('did-finish-load',async()=>{try{
+  const html=await(await fetch('http://127.0.0.1:3000/')).text(),token=html.match(/const token\s*=\s*'([^']+)'/)[1],marker='capture-target-ui='+Date.now();
+  const target='Node worker 7 · ПОТОК <img src=x onerror=alert(1)>',payload={headers:[],text:'',base64:'',size:0,complete:true,truncated:false};
+  const exchange=label=>({summary:{id:0,time:Date.now(),source:'cdp_node',capture_target:label,method:'GET',url:'https://example.test/?'+marker,status:200,size:0,error:null},request:payload,response:payload});
+  const ingest=async(value,status=200)=>{const response=await fetch('http://127.0.0.1:3000/api/capture',{method:'POST',headers:{'x-librium-token':token,'content-type':'application/json'},body:JSON.stringify({event:'exchange',websocket:false,exchange:value})});assert.equal(response.status,status);return status===200?response.json():null;};
+  const {id}=await ingest(exchange(target));
+  for(let n=0;n<505;n++)await ingest(exchange(n===504?'Node worker 8':undefined));
+  for(const invalid of ['', '   ', 'x'.repeat(257), '😀'.repeat(257)])await ingest(exchange(invalid),400);
+  await ingest(exchange(42),422);
+  const {id:boundaryId}=await ingest(exchange('😀'.repeat(256)));assert.ok(boundaryId>id);
+  const run=code=>window.webContents.executeJavaScript(code);
+  async function until(code){for(let n=0;n<150;n++){if(await run(code))return;await delay();}throw Error('UI condition failed: '+code);}
+  await run(`document.querySelector('#filter').value=${JSON.stringify(marker)};document.querySelector('#filter').dispatchEvent(new Event('input'));`);
+  await until(`document.querySelectorAll('#rows tr').length===500`);assert.equal(await run(`Boolean(document.querySelector('[data-id="${id}"]'))`),false);
+  await run(`document.querySelector('#filters-open').click();document.querySelector('#rule-field').value='capture_target';document.querySelector('#rule-field').dispatchEvent(new Event('change'));document.querySelector('#rule-op').value='eq';document.querySelector('#rule-value').value=${JSON.stringify(target.toLowerCase())};document.querySelector('#filter-form').requestSubmit();`);
+  await until(`document.querySelectorAll('#rows tr').length===1&&Boolean(document.querySelector('[data-id="${id}"]'))`);
+  await run(`document.querySelector('[data-id="${id}"]').click();`);await until(`Boolean(document.querySelector('.selection-target'))`);
+  assert.equal(await run(`document.querySelector('.selection-target').textContent`),target);assert.equal(await run(`document.querySelectorAll('.capture-target-tag img,.selection-target img').length`),0);
+  await run(`Array.from(document.querySelectorAll('.filter-chip')).find(node=>node.textContent.startsWith('Окно / поток')).click();`);await until(`document.querySelectorAll('#rows tr').length===500`);
+  await run(`document.querySelector('.selection-target').click();`);await until(`document.querySelectorAll('#rows tr').length===1`);
+  const saved=JSON.parse(fs.readFileSync(path.join(profile,'filter-sessions.json'),'utf8'));assert.ok(saved.sessions.find(value=>value.id===saved.activeId).rules.some(rule=>rule.field==='capture_target'&&rule.value===target));
+  await run(`Array.from(document.querySelectorAll('.filter-chip')).find(node=>node.textContent.startsWith('Окно / поток')).click();`);
+  const contextExchange=(context,label='Shared name')=>{const value=exchange(label);value.summary.url+='-contexts';value.summary.capture_context=context;return value;};
+  const {id:contextId}=await ingest(contextExchange('Scope/A'));await ingest(contextExchange('Scope/B'));const {id:renamedId}=await ingest(contextExchange('Scope/A','Renamed window'));
+  for(const invalid of ['', 'bad id','я','x'.repeat(129)])await ingest(contextExchange(invalid),400);
+  await run(`document.querySelector('#filter').value=${JSON.stringify(marker+'-contexts')};document.querySelector('#filter').dispatchEvent(new Event('input'));`);await until(`document.querySelectorAll('#rows tr').length===3`);
+  await run(`document.querySelector('[data-id="${contextId}"]').click();`);await until(`document.querySelector('.selection-target')?.textContent==='Shared name'`);await run(`document.querySelector('.selection-target').click();`);await until(`document.querySelectorAll('#rows tr').length===2`);
+  assert.equal(await run(`Boolean(document.querySelector('[data-id="${renamedId}"]'))`),true);
+  const contextSaved=JSON.parse(fs.readFileSync(path.join(profile,'filter-sessions.json'),'utf8'));assert.deepEqual(contextSaved.sessions.find(value=>value.id===contextSaved.activeId).captureContext,{id:'Scope/A',label:'Shared name'});
+  assert.equal(await run(`document.querySelector('#filter-chips').textContent.includes('Scope/A')`),false);
+  await run(`Array.from(document.querySelectorAll('.filter-chip')).find(node=>node.textContent.startsWith('Только это окно')).click();`);await until(`document.querySelectorAll('#rows tr').length===3`);
+  await run(`document.querySelector('.selection-target').click();`);await until(`document.querySelectorAll('#rows tr').length===2`);
+  window.setSize(1024,760);await run(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+  assert.equal(await run(`document.querySelector('#selection').scrollWidth<=document.querySelector('#selection').clientWidth`),true);
+  fs.writeFileSync('target/capture-target-preview.png',(await window.webContents.capturePage()).toPNG());
+  console.log('PASS: native target filter finds old archive rows, Unicode / inert labels, one-click handoff, session persistence, missing metadata, 256-character boundary and minimum-window layout');
+  clearTimeout(deadline);app.quit();
+ }catch(error){console.error(error);clearTimeout(deadline);app.exit(1);}});
+});
+require('../desktop/main.cjs');

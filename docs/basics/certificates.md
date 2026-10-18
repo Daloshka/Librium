@@ -55,7 +55,7 @@ X.509 родом.
 все браузеры это прекратили. Теперь имена берутся **только** из расширения
 **SAN** (Subject Alternative Name), а CN игнорируется при проверке.
 
-Реальный сертификат github.com, снят на этой машине:
+Реальный сертификат github.com, снят в примере:
 
     subject = CN=github.com
     issuer  = C=GB, O=Sectigo Limited, CN=Sectigo Public Server Authentication CA DV E36

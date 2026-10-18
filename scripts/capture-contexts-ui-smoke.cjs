@@ -1,0 +1,24 @@
+const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert/strict');
+const dom=new JSDOM(fs.readFileSync('ui/index.html','utf8'),{runScripts:'outside-only'}),{window}=dom,doc=window.document;
+window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};window.HTMLDialogElement.prototype.close=function(){this.open=false;};
+window.eval(fs.readFileSync('ui/capture-contexts.js','utf8'));
+const $=id=>doc.getElementById('capture-contexts-'+id),jobs=[],applied=[];let active=0,max=0,failApply=false;
+const request=path=>new Promise((resolve,reject)=>{active++;max=Math.max(max,active);jobs.push({query:JSON.parse(new URLSearchParams(path.split('?')[1]).get('q')),resolve:value=>{active--;resolve(value);},reject:error=>{active--;reject(error);}});});
+const controller=window.LibriumCaptureContexts.create({document:doc,request,apply:value=>{if(failApply)throw Error('apply failed');applied.push(JSON.parse(JSON.stringify(value)));}});
+const row=(id,label=id,last_id=90)=>({id,label,source:'cdp_node',http:3,ws:2,total:5,first_time:0,last_time:1000,last_id});
+const result=(contexts,older=false)=>({contexts,total:350,matched:350,without_context:10,through:100,older,next_before:older?70:null});
+const flush=async()=>{for(let n=0;n<4;n++)await new Promise(resolve=>setImmediate(resolve));};
+const submit=text=>{$('search').value=text;$('form').dispatchEvent(new window.Event('submit',{cancelable:true}));};
+(async()=>{
+ controller.open();assert.equal(jobs.length,1);submit('first');submit('second');assert.equal(jobs.length,1);
+ jobs[0].resolve(result([row('stale','stale') ]));await flush();assert.equal(jobs.length,2);assert.equal(jobs[1].query.search,'second');assert.equal($('content').textContent.includes('stale'),false);
+ const label='<img src=x onerror=alert(1)>';jobs[1].resolve(result([row('Scope/A',label),row('Scope/B',label)]));await flush();assert.equal($('content').querySelectorAll('img').length,0);assert.ok($('content').textContent.includes(label));
+ const oldButton=$('content').querySelector('button');failApply=true;oldButton.click();assert.equal($('dialog').open,true);assert.match($('error').textContent,/apply failed/);failApply=false;oldButton.click();assert.deepEqual(applied,[{id:'Scope/A',label}]);assert.equal($('dialog').open,false);
+ oldButton.onclick();assert.equal(applied.length,1);
+ controller.open();jobs[2].resolve(result([row('first')],true));await flush();$('next').click();assert.equal(jobs[3].query.before,70);assert.equal(jobs[3].query.through,100);jobs[3].resolve(result([row('older')]));await flush();$('prev').click();assert.equal(jobs[4].query.before,null);assert.equal(jobs[4].query.through,100);jobs[4].resolve(result([row('first')],true));await flush();
+ $('refresh').click();assert.equal(jobs[5].query.through,null);controller.close();controller.open();assert.equal(jobs.length,6);jobs[5].reject(Error('obsolete failure'));await flush();assert.equal(jobs.length,7);assert.equal($('error').hidden,true);jobs[6].resolve({contexts:[],total:0,matched:0,without_context:10,through:0,older:false,next_before:null});await flush();assert.match($('content').textContent,/не указаны/);
+ submit('я'.repeat(257));assert.equal(jobs.length,7);assert.match($('error').textContent,/256/);
+ submit('retry');jobs[7].reject(Error('archive unavailable'));await flush();assert.match($('error').textContent,/archive unavailable/);$('refresh').click();jobs[8].resolve(result([row('recovered')]));await flush();assert.equal($('error').hidden,true);assert.match($('content').textContent,/recovered/);
+ assert.equal(max,1);controller.close();assert.equal($('content').textContent,'');
+ console.log('PASS: context catalogue Unicode / inert duplicate labels, exact selection, stable page cursor, latest-only read queue, stale close/reopen replies, retry, empty archive and input bounds');
+})().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>window.close());
