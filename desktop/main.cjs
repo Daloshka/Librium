@@ -293,6 +293,8 @@ function openBrowser() {
   return true;
 }
 ipcMain.handle('open-browser', event => {validate(event);return openBrowser();});
+let geoIp=null;
+ipcMain.handle('geo-ip', (event, host) => {validate(event);geoIp ||= new (require('./geoip.cjs').GeoIp)({file: join(app.getPath('userData'), 'ipinfo-cache.json')});return geoIp.info(String(host || '').slice(0, 255));});
 ipcMain.handle('mobile-status', event => {validate(event);return mobile.status();});
 ipcMain.handle('set-language',(event,lang)=>{validate(event);if(lang==='ru'||lang==='en')i18n.set(lang);});
 // The renderer cannot reload itself: will-navigate is blocked above, so the language switch asks the main process.

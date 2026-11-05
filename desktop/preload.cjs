@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('librium', {
   saveFilterSessions: value => ipcRenderer.invoke('filter-sessions-save',value),
   openUrl: url => ipcRenderer.invoke('open-url', url),
   openBrowser: () => ipcRenderer.invoke('open-browser'),
+  geoIp: host => ipcRenderer.invoke('geo-ip', host),
   mobileStatus: () => ipcRenderer.invoke('mobile-status'),
   mobileEnable: address => ipcRenderer.invoke('mobile-enable', address),
   mobileDisable: () => ipcRenderer.invoke('mobile-disable'),

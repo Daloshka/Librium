@@ -1,7 +1,7 @@
 const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
-const { randomUUID, X509Certificate } = require('node:crypto');
+const { randomInt, X509Certificate } = require('node:crypto');
 const i18n = require('./i18n.cjs');
 // The phone page is HTML, so translated text is escaped before it is inlined.
 const t = (key, params) => i18n.t(key, params).replace(/[&<>]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[character]));
@@ -22,6 +22,9 @@ function sameSubnet(ip, local, mask) {
 function bind(server, port, host) {
   return new Promise((resolve,reject) => { server.once('error',reject); server.listen({port,host,exclusive:true},()=>{server.off('error',reject);resolve();}); });
 }
+// Short enough to type by hand; the page only serves the public CA certificate.
+const KEY_ALPHABET='abcdefghjkmnpqrstuvwxyz23456789';
+function shortKey() { return Array.from({length:4},()=>KEY_ALPHABET[randomInt(KEY_ALPHABET.length)]).join(''); }
 function blockedPort(ports, port) { return ports.includes(Number(port)); }
 function cleanHeaders(headers) {
   const result={...headers};
@@ -40,9 +43,9 @@ class Mobile {
     if(this.active) {if(this.active.address===address)return this.status();throw Error(i18n.t('lan.busy'));}
     const adapter=this.listAddresses().find(a=>a.address===address);
     if(!adapter || !privateIp(address)) throw Error(i18n.t('lan.pickAddress'));
-    const pem=await this.getCertificate(), der=new X509Certificate(pem).raw, key=randomUUID();
+    const pem=await this.getCertificate(), der=new X509Certificate(pem).raw, key=shortKey();
     const prefix='/'+key;
-    const page=`<!doctype html><html lang="${i18n.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t('lan.pageTitle')}</title><style>body{font:16px/1.6 system-ui;background:#151a2d;color:#d9e3ff;max-width:600px;padding:25px;margin:auto}a{display:block;background:#7553ba;padding:15px;border-radius:9px;color:white;text-align:center}code{color:#93e8c6}small{color:#a5b5d1}</style><h1>Librium · Wi-Fi</h1><p>${t('lan.pageIntro')}</p><a href="${prefix}/ca.crt">${t('lan.pageDownload')}</a><p>${t('lan.pageProxy')} <code>${address}</code><br>${t('lan.pagePort')} <code>${this.proxyPort}</code></p><h3>iPhone / iPad</h3><p>${t('lan.pageIos')}</p><p>${t('lan.pageIosProxy')}</p><h3>Android</h3><p>${t('lan.pageAndroid')}</p><p>${t('lan.pageCheck')}</p><small>${t('lan.pageNote')}</small></html>`;
+    const page=`<!doctype html><html lang="${i18n.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t('lan.pageTitle')}</title><style>body{font:16px/1.6 system-ui;background:#151a2d;color:#d9e3ff;max-width:600px;padding:25px;margin:auto}a{display:block;background:#7553ba;padding:15px;border-radius:9px;color:white;text-align:center}code{color:#93e8c6}</style><h1>Librium · Wi-Fi</h1><p>${t('lan.pageIntro')}</p><a href="${prefix}/ca.crt">${t('lan.pageDownload')}</a><p>${t('lan.pageProxy')} <code>${address}</code><br>${t('lan.pagePort')} <code>${this.proxyPort}</code></p><h3>iPhone / iPad</h3><p>${t('lan.pageIos')}</p><p>${t('lan.pageIosProxy')}</p><h3>Android</h3><p>${t('lan.pageAndroid')}</p><p>${t('lan.pageAndroidProxy')}</p><p>${t('lan.pageCheck')}</p></html>`;
     const serveCertificate=(req,res,path)=>{
       res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
       res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'");

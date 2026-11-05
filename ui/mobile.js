@@ -13,11 +13,12 @@ function renderMobile(){
   $('mobile-state').textContent=mobileState.enabled?t('phone.enabled',{address:mobileState.address,port:mobileState.proxyPort}):t(mobileState.addresses.length?'phone.pickAddress':'phone.noAddress');
   $('mobile-details').hidden=!mobileState.enabled;
   mobileFirewallHint(mobileState.proxyPort,mobileState.certificatePort);
-  if(mobileState.enabled){$('mobile-host').textContent=mobileState.address;$('mobile-port').textContent=mobileState.proxyPort;$('mobile-url').value=mobileState.url;$('mobile-client').textContent=mobileState.lastClient?t('phone.lastClient',{client:mobileState.lastClient}):t('phone.noClient');}
+  if(mobileState.enabled){$('mobile-host').textContent=mobileState.address;$('mobile-port').textContent=mobileState.proxyPort;$('mobile-url').value=mobileState.url;if($('mobile-qr').dataset.url!==mobileState.url){$('mobile-qr').innerHTML=qr.svg(mobileState.url,2);$('mobile-qr').dataset.url=mobileState.url;}$('mobile-client').textContent=mobileState.lastClient?t('phone.lastClient',{client:mobileState.lastClient}):t('phone.noClient');}
 }
 function mobileFirewallHint(proxyPort=Number(proxyAddress.split(':')[1])||8080,certificatePort=proxyPort+1){
-  $('mobile-firewall').hidden=platform!=='win32';
-  $('mobile-firewall-hint').textContent=t(platform==='win32'?'phone.firewallWindows':platform==='darwin'?'phone.firewallMac':'phone.firewallOther',{proxyPort,certificatePort});
+  const windows=platform==='win32';
+  $('mobile-firewall').hidden=!windows;$('mobile-firewall-hint').hidden=!windows;
+  if(windows)$('mobile-firewall-hint').textContent=t('phone.firewallWindows',{proxyPort,certificatePort});
 }
 mobileFirewallHint();
 $('phone').onclick=async()=>{$('mobile-dialog').showModal();await refreshMobile();};

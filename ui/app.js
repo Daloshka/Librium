@@ -629,6 +629,29 @@ async function openRedirect(current, target) {
   const match=page.rows.filter(row=>{try{return new URL(row.url).href===target.href;}catch{return false;}}).sort((a,b)=>a.id-b.id)[0];
   if(match)await choose(match.id);else toast(t('redirect.notFound'));
 }
+const geoCache=new Map();
+function countryName(code){try{return code?new Intl.DisplayNames([LibriumI18n.locale],{type:'region'}).of(code)||code:'';}catch{return code;}}
+function geoLabel(g){
+  if(!g?.ip)return '';
+  if(g.private)return `${g.ip} · ${t('geo.private')}`;
+  const place=[countryName(g.country),g.city].filter(Boolean).join(', ');
+  return [g.ip,[g.asn,g.org].filter(Boolean).join(' '),place,g.error?t('geo.unavailable'):''].filter(Boolean).join(' · ');
+}
+function geoFor(host){
+  const cached=geoCache.get(host);
+  if(cached&&Date.now()-cached.at<300000)return cached;
+  const entry={at:Date.now(),value:null};
+  entry.promise=window.librium.geoIp(host).then(value=>{entry.value=value;if(value.error)geoCache.delete(host);return value;},()=>{geoCache.delete(host);return null;});
+  geoCache.set(host,entry);return entry;
+}
+function renderGeo(url){
+  if(!window.librium?.geoIp)return;
+  let host;try{host=new URL(url).hostname;}catch{return;}
+  const span=el('span','','selection-geo'),entry=geoFor(host);
+  const fill=g=>{span.textContent=geoLabel(g);span.hidden=!span.textContent;if(g?.ip){span.title=t('geo.copy');span.onclick=async()=>{try{await window.librium.copy(g.ip);toast(t('geo.copied'));}catch(error){showError(error);}};}};
+  $('selection').append(span);
+  if(entry.value)fill(entry.value);else{span.textContent='…';entry.promise.then(g=>{if(span.isConnected)fill(g);});}
+}
 async function renderDetail() {
   const version = ++renderVersion;
   if (!detail) {
@@ -644,6 +667,7 @@ async function renderDetail() {
   $('note').hidden=false;if(document.activeElement!==$('note'))$('note').value=current.summary.note||'';
   open.onclick=async()=>{try{const url=new URL(current.summary.url);if(!['http:','https:'].includes(url.protocol))throw Error(t('main.httpOnly'));if(window.librium)await window.librium.openUrl(url.href);else window.open(url.href,'_blank','noopener,noreferrer');}catch(error){showError(error);}};
   $('selection').replaceChildren(el('span', '#' + current.summary.id, 'selection-id'),star,el('span',current.summary.method,'selection-method'),open, selectionUrl, el('span', `${current.summary.time ? stamp(current.summary.time) + ' · ' : ''}${current.summary.version ? current.summary.version + ' · ' : ''}${current.summary.status ?? '…'} · ${current.summary.elapsed_ms ?? '…'} ms`, 'selection-time'));
+  renderGeo(current.summary.url);
   let matches = 0;
   await Promise.all(['request','response'].map(async side => {
     const node = paneNodes[side], payload = current[side], mode = modes[side];

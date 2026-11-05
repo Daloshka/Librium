@@ -449,6 +449,7 @@ fn router(app: App) -> Router {
             asset(SCRIPT, include_str!("../ui/suggest.js")),
         )
         .route("/curl.js", asset(SCRIPT, include_str!("../ui/curl.js")))
+        .route("/qr.js", asset(SCRIPT, include_str!("../ui/qr.js")))
         .route("/mobile.js", asset(SCRIPT, include_str!("../ui/mobile.js")))
         .route("/api/traffic", get(list).delete(clear))
         .route("/api/traffic-page", get(page).delete(remove_matching))
