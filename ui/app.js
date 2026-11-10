@@ -129,34 +129,50 @@ function typeLabel(type){if(!type)return '';const subtype=type.split('/')[1]||ty
 function buildRow(row) {
   const tr = el('tr'); tr.dataset.id = row.id; tr.tabIndex = 0;
   tr.setAttribute('aria-label', `ID ${row.id}: ${row.method} ${row.url}`);
-  const url = splitUrl(row.url), urlCell = el('td'), path = el('span', undefined, 'path');
-  const label = typeLabel(row.content_type); if (label) { const tag = el('span', label, 'type'); tag.title = row.content_type; path.append(tag); }
-  if (row.mock) { const tag = el('span', 'mock', 'type mock'); tag.title = t('row.mockTitle'); path.append(tag); }
-  path.append(document.createTextNode(url.path)); urlCell.append(el('span', url.host, 'host'), path); urlCell.title = row.url;
+  const url = splitUrl(row.url), urlCell = el('td', undefined, 'url'), typeCell = el('td', undefined, 'col-type');
+  const label = typeLabel(row.content_type); if (label) { const tag = el('span', label, 'type'); tag.title = row.content_type; typeCell.append(tag); }
+  if (row.mock) { const tag = el('span', 'mock', 'type mock'); tag.title = t('row.mockTitle'); typeCell.append(tag); }
+  urlCell.append(el('span', url.host, 'host'), el('span', url.path, 'path')); urlCell.title = row.url;
   const methodCell = el('td'); methodCell.append(el('span', row.method, 'method-tag ' + row.method));
   const idCell = el('td', row.id, 'request-id'); idCell.title = String(row.id);
   // The star sits in front of the host: the ID column is too narrow to carry it.
   if (row.starred) { urlCell.firstChild.prepend(el('span', '★ ', 'star')); tr.classList.add('starred'); }
   if (row.note) urlCell.title = row.url + '\n' + row.note;
-  const timeCell = el('td', clock(row.time), 'bytes time'); timeCell.title = stamp(row.time) + (row.elapsed_ms == null ? '' : ` · ${row.elapsed_ms} ms`);
-  // Time to the first response byte, under the clock; a second and more stands out.
-  if (row.elapsed_ms != null) timeCell.append(el('span', row.elapsed_ms >= 10000 ? `${(row.elapsed_ms / 1000).toFixed(1)} s` : `${row.elapsed_ms} ms`, 'latency' + (row.elapsed_ms >= 1000 ? ' slow' : '')));
+  const timeCell = el('td', clock(row.time), 'bytes time col-time'); timeCell.title = stamp(row.time) + (row.elapsed_ms == null ? '' : ` · ${row.elapsed_ms} ms`);
+  // Time to the first response byte, in its own column; a second and more stands out.
+  const durationCell = el('td', undefined, 'duration'); durationCell.title = timeCell.title;
+  if (row.elapsed_ms != null) durationCell.append(el('span', row.elapsed_ms >= 10000 ? `${(row.elapsed_ms / 1000).toFixed(1)} s` : `${row.elapsed_ms} ms`, 'latency' + (row.elapsed_ms >= 1000 ? ' slow' : '')));
   const statusCell = el('td', row.status ?? '…', `status s${String(row.status)[0]}`);
   if (row.status != null && REASONS[row.status]) statusCell.title = `${row.status} ${REASONS[row.status]}`;
   // A transfer that failed after its status arrived would otherwise look like any other 200.
   if (row.error) { statusCell.append(el('span', ' ⚠', 'status-flag')); statusCell.title = coreText(row.error); tr.classList.add('flagged'); }
-  tr.append(idCell, timeCell, methodCell, urlCell, statusCell, el('td', bytes(row.size), 'bytes'));
+  // A failed exchange reads as a red line, the way a browser's network panel shows it.
+  if (row.status >= 400) tr.classList.add('failed');
+  tr.append(idCell, statusCell, methodCell, urlCell, typeCell, el('td', bytes(row.size), 'bytes col-size'), durationCell, timeCell);
   tr.onclick = () => choose(row.id);
   tr.oncontextmenu = event => { event.preventDefault(); choose(row.id); openRowMenu(row, event.clientX, event.clientY); };
   tr.onkeydown = event => {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(row.id); }
+    if (event.key === 'Escape' && selected !== null) { event.preventDefault(); closeInspector(); }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); let next = tr; do { next = event.key === 'ArrowDown' ? next.nextElementSibling : next.previousElementSibling; } while (next && !next.dataset.id); if (next) { next.focus(); choose(Number(next.dataset.id)); } }
   };
   return tr;
 }
 function renderSelection() {
+  // The list takes the whole window until a request is picked; the inspector opens beside it.
+  document.body.classList.toggle('no-selection', selected === null);
   for (const tr of $('rows').children) { if (!tr.dataset.id) continue; const on = Number(tr.dataset.id) === selected; tr.classList.toggle('selected', on); tr.setAttribute('aria-selected', String(on)); }
 }
+// Closing the inspector gives the list its full width back. Follow mode would reopen it at once, so it goes off too.
+function closeInspector() {
+  if (selected === null) return;
+  const row = $('rows').querySelector('tr.selected');
+  if (following) { following = false; renderFollow(); try { localStorage.setItem('librium-follow', '0'); } catch {} }
+  previousSelected = selected; selected = null; detail = null; detailSignature = ''; wsData = null; wsBefore = null; wsSignature = '';
+  $('note').hidden = true; $('selection').replaceChildren(el('span', '—', 'selection-id'), el('span', t('inspect.choose')));
+  renderSelection(); renderDetail(); row?.focus({preventScroll: true});
+}
+function closeButton() { const close = el('button', '×', 'inspector-close'); close.title = t('inspect.close'); close.setAttribute('aria-label', t('inspect.close')); close.onclick = closeInspector; return close; }
 function renderRows() {
   const parsed = LibriumFilters.parse($('filter').value), query = parsed.text.toLowerCase(), rules = activeRules(parsed), method = $('method').value, status = $('status').value;
   const shown = rows.filter(r => `${r.id} ${r.method} ${r.url} ${r.status ?? ''} ${r.content_type ?? ''}`.toLowerCase().includes(query) && (!method || r.method === method) && (!status || (status === 'pending' ? r.status === null : String(r.status).startsWith(status))) && LibriumFilters.matches(r,rules));
@@ -170,7 +186,7 @@ function renderRows() {
   let lastDay = null;
   for (const row of shown) {
     const day = sortField === 'id' && row.time ? new Date(row.time).toDateString() : null;
-    if (day && day !== lastDay) { const key = 'day:' + day; let entry = rowNodes.get(key); if (!entry) { const tr = el('tr', undefined, 'day'); const label = new Date(row.time).toLocaleDateString(LibriumI18n.locale, {weekday: 'short', day: 'numeric', month: 'long', year: 'numeric'}); const cell = el('td', label.charAt(0).toUpperCase() + label.slice(1)); cell.colSpan = 6; tr.append(cell); entry = {tr, key}; rowNodes.set(key, entry); } seen.add(key); nodes.push(entry.tr); }
+    if (day && day !== lastDay) { const key = 'day:' + day; let entry = rowNodes.get(key); if (!entry) { const tr = el('tr', undefined, 'day'); const label = new Date(row.time).toLocaleDateString(LibriumI18n.locale, {weekday: 'short', day: 'numeric', month: 'long', year: 'numeric'}); const cell = el('td', label.charAt(0).toUpperCase() + label.slice(1)); cell.colSpan = 4; tr.append(cell, el('td', undefined, 'col-type'), el('td', undefined, 'col-size'), el('td'), el('td', undefined, 'col-time')); entry = {tr, key}; rowNodes.set(key, entry); } seen.add(key); nodes.push(entry.tr); }
     lastDay = day;
     const key = rowKey(row); let entry = rowNodes.get(row.id); if (!entry || entry.key !== key) { entry = {tr: buildRow(row), key}; rowNodes.set(row.id, entry); } seen.add(row.id); nodes.push(entry.tr);
   }
@@ -195,6 +211,9 @@ function renderRows() {
     $('empty').replaceChildren(el('div', '↔', 'empty-icon'), el('h3', t('empty.waiting')), el('p', t('empty.proxyHint',{proxy:proxyAddress})), actions);
   }
 }
+const BODY_VIEWS = ['pretty', 'text', 'hex'];
+// The view last used for a body, per side: the Body tab comes back to it.
+const bodyView = {request: BODY_VIEWS.includes(preferredModes.request) ? preferredModes.request : 'pretty', response: BODY_VIEWS.includes(preferredModes.response) ? preferredModes.response : 'pretty'};
 for (const side of ['request', 'response']) {
   const pane = el('section', undefined, 'pane'), title = el('div', undefined, 'pane-title');
   const heading = el('h2'); heading.append(el('span', side === 'request' ? '↗' : '↙'), document.createTextNode(side === 'request' ? 'Request' : 'Response'));
@@ -217,13 +236,17 @@ for (const side of ['request', 'response']) {
   }
   title.append(copy);
   const tabs = el('div', undefined, 'tabs');
-  for (const [key,label] of [['http','HTTP'],['headers',t('tab.headers')],['params',t('tab.params')],['cookies',t('tab.cookies')],['pretty','Pretty'],['text',t('tab.text')],['hex','Hex'],['image',t('tab.image')],['audio',t('tab.audio')],['ws',t('tab.ws')]]) {
+  // The body is one tab; how it is shown (formatted, as received, hex) is a switch at the end of the tab row.
+  const views = el('span', undefined, 'views'); views.setAttribute('role', 'group'); views.setAttribute('aria-label', t('view.aria'));
+  for (const [key,label] of [['http','HTTP'],['headers',t('tab.headers')],['params',t('tab.params')],['cookies',t('tab.cookies')],['body',t('tab.text')],['image',t('tab.image')],['audio',t('tab.audio')],['ws',t('tab.ws')],['pretty',t('view.pretty')],['text',t('view.raw')],['hex','Hex']]) {
     const button = el('button', label); button.dataset.mode = key;
-    button.onclick = () => { modes[side] = key; rememberMode(side, key); renderDetail(); }; tabs.append(button);
+    if (BODY_VIEWS.includes(key)) { button.title = t('view.' + key + 'Title'); button.onclick = () => { bodyView[side] = key; modes[side] = key; rememberMode(side, key); renderDetail(); }; views.append(button); }
+    else { button.onclick = () => { modes[side] = key === 'body' ? bodyView[side] : key; rememberMode(side, modes[side]); renderDetail(); }; tabs.append(button); }
   }
+  tabs.append(views);
   const notice = el('div', '', 'notice'); notice.hidden = true;
   const content = el('div', undefined, 'content');
-  pane.append(title, tabs, notice, content); $('panes').append(pane); paneNodes[side] = { pane, state, tabs, notice, content, save, curl: pane.curl, replay: pane.replay, edit: pane.edit, copyText: '' };
+  pane.append(title, tabs, notice, content); $('panes').append(pane); paneNodes[side] = { pane, state, tabs, views, notice, content, save, curl: pane.curl, replay: pane.replay, edit: pane.edit, copyText: '' };
 }
 function highlighted(text) {
   const fragment = document.createDocumentFragment(), query = $('find').value;
@@ -312,7 +335,8 @@ function curlCommand(current) {
 }
 // A star and a note stick to an exchange in the core; the list and the header follow.
 async function markRow(id, patch) {
-  try { await api('traffic/' + id, 'PATCH', JSON.stringify(patch)); if (detail?.summary.id === id) Object.assign(detail.summary, patch); rowsSignature = ''; detailSignature = ''; await loadPage(); await loadDetail(); }
+  try { await api('traffic/' + id, 'PATCH', JSON.stringify(patch)); // A finished exchange is not fetched again, so the header is redrawn here: the star must flip at once.
+    if (detail?.summary.id === id) { Object.assign(detail.summary, patch); await renderDetail(); } rowsSignature = ''; detailSignature = ''; await loadPage(); await loadDetail(); }
   catch (error) { showError(error); }
 }
 const markSelected = patch => detail ? markRow(detail.summary.id, patch) : Promise.resolve();
@@ -412,18 +436,6 @@ async function followReplay(before) {
     await new Promise(resolve => setTimeout(resolve, 300));
   }
 }
-// A request from scratch: the same editor with nothing to copy from; id 0 tells the shell there is no capture.
-// The last composed request comes back next time, so a request can be iterated on instead of retyped.
-const COMPOSE_KEY = 'librium-last-compose';
-function lastCompose() { try { const saved = JSON.parse(localStorage.getItem(COMPOSE_KEY) || 'null'); return saved && typeof saved.url === 'string' && Array.isArray(saved.headers) ? saved : null; } catch { return null; } }
-function rememberCompose(edit) { try { localStorage.setItem(COMPOSE_KEY, JSON.stringify({method: edit.method, url: edit.url, headers: edit.headers, body: edit.body ?? ''})); } catch {} }
-function openComposeEditor() {
-  const last = lastCompose();
-  const blank = {summary: {id: 0, method: last?.method || 'GET', url: last?.url || 'https://', status: null}, request: {headers: last ? last.headers : [['accept', '*/*']], size: 0, complete: true, truncated: false, base64: ''}};
-  openReplayEditor(blank);
-  $('replay-body').disabled = false; $('replay-body').value = last?.body || ''; $('replay-note').textContent = t('compose.curlHint');
-  $('replay-url').value = blank.summary.url; $('replay-url').focus(); const caret = $('replay-url').value.length; $('replay-url').setSelectionRange(caret, caret);
-}
 function openReplayEditor(current) {
   replayTarget = current;
   $('replay-title').textContent = t(current.summary.id ? 'replay.title' : 'compose.title');
@@ -442,12 +454,11 @@ $('replay-form').onsubmit = async event => {
   const edit = {method: $('replay-method').value, url: $('replay-url').value.trim(), headers};
   if (!$('replay-body').disabled) edit.body = $('replay-body').value;
   const button = $('replay-form').querySelector('button[type=submit]'); button.disabled = true;
-  try { await sendReplay(replayTarget.summary.id, edit); if (!replayTarget.summary.id) rememberCompose(edit); $('replay-dialog').close(); }
+  try { await sendReplay(replayTarget.summary.id, edit); $('replay-dialog').close(); }
   catch (error) { $('replay-error').textContent = error.message; }
   finally { button.disabled = false; }
 };
 $('replay-close').onclick = $('replay-cancel').onclick = () => $('replay-dialog').close();
-$('compose').onclick = openComposeEditor;
 // A cURL command pasted into the address field fills the whole editor (any dialog mode).
 $('replay-url').addEventListener('paste', event => {
   const text = event.clipboardData?.getData('text') || '';
@@ -530,6 +541,8 @@ function cookieValue(item, mode) {
 async function copyText(text) { if (window.librium) await window.librium.copy(text); else await navigator.clipboard.writeText(text); }
 function copyOnClick(cell, text) {
   cell.title = t('pane.copy');
+  // A long value without spaces (a token, base64) fills its lines evenly instead of breaking at every hyphen.
+  if (text.length > 48 && !/\s/.test(text)) cell.classList.add('token');
   cell.onclick = async () => { if (window.getSelection?.().toString()) return; try { await copyText(text); toast(t('cell.copied', {text: text.length > 60 ? text.slice(0, 57) + '…' : text})); } catch (error) { showError(error); } };
 }
 // The row menu: narrow the list to what this row shares with others, or act on the row itself.
@@ -554,6 +567,7 @@ function openRowMenu(row, x, y) {
   if (row.status !== 101) { item(t('menu.copyFetch'), () => copySnippet(row, fetchSnippet)); item(t('menu.copyPython'), () => copySnippet(row, pythonSnippet)); }
   if (row.status !== 101) item(t('menu.copyCurl'), async () => { try { const full = detail?.summary.id === row.id ? detail : await api('traffic/' + row.id); const command = curlCommand(full); await copyText(command.text); toast(t(command.bodyOmitted ? 'pane.curlNoBody' : 'pane.curlCopied')); } catch (error) { showError(error); } });
   if (row.status != null && row.status !== 101) item(t('menu.mock'), () => openMockEditor(row).catch(showError));
+  if (window.librium?.replay && row.status !== 101) item(t('menu.openClient'), () => openInClient(row).catch(showError));
   if (window.librium?.replay && row.status !== 101) item(t('menu.resend'), async () => { try { await sendReplay(row.id); } catch (error) { showError(error); } });
   menu.append(el('hr'));
   item(t('menu.delete'), async () => { try { await api('traffic/' + row.id, 'DELETE'); if (selected === row.id) { selected = null; detail = null; detailSignature = ''; renderDetail(); $('selection').replaceChildren(el('span', t('inspect.deleted'))); } toast(t('menu.deleted', {id: row.id})); rowsSignature = ''; await loadPage(); } catch (error) { showError(error); } });
@@ -666,7 +680,7 @@ async function renderDetail() {
   const star=el('button',current.summary.starred?'★':'☆','star-toggle'+(current.summary.starred?' on':''));star.title=t(current.summary.starred?'inspect.unstar':'inspect.star');star.setAttribute('aria-pressed',current.summary.starred?'true':'false');star.onclick=()=>markSelected({starred:!current.summary.starred});
   $('note').hidden=false;if(document.activeElement!==$('note'))$('note').value=current.summary.note||'';
   open.onclick=async()=>{try{const url=new URL(current.summary.url);if(!['http:','https:'].includes(url.protocol))throw Error(t('main.httpOnly'));if(window.librium)await window.librium.openUrl(url.href);else window.open(url.href,'_blank','noopener,noreferrer');}catch(error){showError(error);}};
-  $('selection').replaceChildren(el('span', '#' + current.summary.id, 'selection-id'),star,el('span',current.summary.method,'selection-method'),open, selectionUrl, el('span', `${current.summary.time ? stamp(current.summary.time) + ' · ' : ''}${current.summary.version ? current.summary.version + ' · ' : ''}${current.summary.status ?? '…'} · ${current.summary.elapsed_ms ?? '…'} ms`, 'selection-time'));
+  $('selection').replaceChildren(el('span', '#' + current.summary.id, 'selection-id'),star,el('span',current.summary.method,'selection-method'),open, selectionUrl, el('span', `${current.summary.time ? stamp(current.summary.time) + ' · ' : ''}${current.summary.version ? current.summary.version + ' · ' : ''}${current.summary.status ?? '…'} · ${current.summary.elapsed_ms ?? '…'} ms`, 'selection-time'), closeButton());
   renderGeo(current.summary.url);
   let matches = 0;
   await Promise.all(['request','response'].map(async side => {
@@ -691,6 +705,7 @@ async function renderDetail() {
     const decoded = ['headers','hex','image','audio','ws','params','cookies'].includes(mode) ? {text:'',notice:''} : await bodyText(payload, current.summary.id, side);
     if (version !== renderVersion) return;
     node.tabs.querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+    const inBody = BODY_VIEWS.includes(mode); if (inBody) bodyView[side] = mode; node.tabs.querySelector('[data-mode="body"]').classList.toggle('active', inBody); node.views.hidden = !inBody;
     node.state.textContent = current.summary.status===101?'WebSocket · '+t(wsData?.state==='open'?'ws.open':wsData?.state==='closed'?'ws.closed':'ws.archived'):`${bytes(payload.size)}${payload.complete ? '' : ' · '+t('pane.streaming')}`;
     const notices = [current.summary.status===101?null:coreText(current.summary.error), mode === 'hex' && payload.base64.length > 87384 ? t('body.hexLimit') : '', payload.truncated && payload.complete ? t('body.truncated') : '', decoded.notice].filter(Boolean);
     node.notice.hidden = !notices.length; node.notice.textContent = notices.join(' · ');
@@ -797,7 +812,7 @@ async function loadDetail() {
 async function choose(id) {
   if (id === selected) return;
   previousSelected = selected; selected = id; wsData=null;wsBefore=null;wsSignature="";detail = null; detailSignature = ''; renderSelection(); await renderDetail();
-  $('selection').replaceChildren(el('span','#'+id,'selection-id'),el('span',t('inspect.loading')));
+  $('selection').replaceChildren(el('span','#'+id,'selection-id'),el('span',t('inspect.loading'),'selection-url'),closeButton());
   try { await loadDetail(); await loadWs(); } catch(error) { showError(error); }
 }
 let lastRevision = null;
@@ -841,15 +856,18 @@ function renderFilterChips(){
   const parsed=LibriumFilters.parse($('filter').value);
   if(parsed.text)add(t('chip.search',{value:parsed.text}),()=>{$('filter').value=parsed.conditions.map(c=>c.raw).join(' ');});
   for(const condition of parsed.conditions)add(condition.raw,()=>{$('filter').value=LibriumFilters.without($('filter').value,condition.raw);});
-  if($('traffic-type').value)add(t('chip.type',{value:$('traffic-type').selectedOptions[0].textContent}),()=>{$('traffic-type').value='';});
-  if($('method').value)add(t('chip.method',{value:$('method').value}),()=>{$('method').value='';});
-  if($('status').value)add(t('chip.status',{value:$('status').selectedOptions[0].textContent}),()=>{$('status').value='';});
   filterRules.forEach((rule,index)=>add(LibriumFilters.label(rule),()=>filterRules.splice(index,1)));
-  box.hidden=!box.children.length;
-  const active=box.querySelectorAll('.filter-chip').length;$('filters-count').textContent=active?String(active):'';$('filters-count').hidden=!active;
-  if(box.children.length){box.prepend(el('span',t('chip.all')));const reset=el('button',t('chip.reset'),'quiet');reset.onclick=resetFilters;box.append(reset);
+  // Type, method and status show as pressed toggles in the bar itself, so they need no chip of their own.
+  renderQuickFilters();
+  const quick=QUICK_FILTERS.some(id=>$(id).value);
+  box.hidden=!box.children.length&&!quick;
+  if(!box.hidden){const reset=el('button',t('chip.reset'),'quiet');reset.onclick=resetFilters;box.append(reset);
     const purge=el('button',t('chip.deleteMatching'),'quiet delete-matching');purge.onclick=deleteMatching;box.append(purge);}
 }
+const QUICK_FILTERS=['traffic-type','method','status'];
+function renderQuickFilters(){document.querySelectorAll('.seg[data-for] button').forEach(button=>{const on=$(button.parentElement.dataset.for).value===button.dataset.value;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));});}
+// A second click on a pressed toggle releases it: nothing pressed in a group means everything is shown.
+document.querySelectorAll('.seg[data-for] button').forEach(button=>button.onclick=()=>{const select=$(button.parentElement.dataset.for);select.value=select.value===button.dataset.value?'':button.dataset.value;select.dispatchEvent(new Event('input',{bubbles:true}));});
 for (const id of ['filter','method','status','traffic-type']) $(id).addEventListener('input', ()=>{renderFilterChips();filtersChanged();});
 for(const [key,label] of Object.entries(LibriumFilters.fields)){const option=el('option',label);option.value=key;$('rule-field').append(option);}
 function ruleOperators(){const field=$('rule-field').value,numeric=LibriumFilters.numeric(field);$('rule-op').replaceChildren();for(const key of numeric?['eq','gte','lte','ne']:field==='frame'?['contains','not_contains']:['contains','not_contains','eq','ne']){const option=el('option',LibriumFilters.operators[key]);option.value=key;$('rule-op').append(option);}$('rule-value').type=numeric?'number':'text';$('rule-value').value='';$('rule-value').placeholder=t(numeric?'filters.valueNumber':'filters.valuePlaceholder');$('rule-error').textContent='';}
@@ -910,7 +928,7 @@ $('filters-open').onclick=()=>{$('filters-dialog').showModal();$('rule-value').f
 // The help dialog is built from the same strings the suggestions use, so it never drifts from them.
 function renderHelp(){
   const mod=platform==='darwin'?'⌘':'Ctrl';
-  const keys=[[`${mod} K`,t('help.kSearch')],[`${mod} F`,t('help.kFind')],[`${mod} I`,t('help.kIntercept')],[`${mod} D`,t('help.kStar')],[`${mod} N`,t('help.kNew')],[`${mod} ⇧ M`,t('help.kMock')],['↑ ↓',t('help.kRows')],['Esc',t('help.kEsc')],[`${mod} Enter`,t('help.kEnter')],[`${mod} ] [`,t('help.kHeld')],['?',t('help.kHelp')]];
+  const keys=[[`${mod} ⇧ P`,t('help.kPalette')],[`${mod} K`,t('help.kSearch')],[`${mod} F`,t('help.kFind')],[`${mod} I`,t('help.kIntercept')],[`${mod} D`,t('help.kStar')],[`${mod} N`,t('help.kNew')],[`${mod} ⇧ M`,t('help.kMock')],['↑ ↓',t('help.kRows')],['Esc',t('help.kEsc')],[`${mod} Enter`,t('help.kEnter')],[`${mod} ] [`,t('help.kHeld')],['?',t('help.kHelp')]];
   const table=$('help-keys');table.replaceChildren();
   for(const [key,what] of keys){const tr=el('tr');const kbd=el('kbd',key);const th=el('th');th.append(kbd);tr.append(th,el('td',what));table.append(tr);}
   const syntax=$('help-syntax');syntax.replaceChildren();
@@ -1086,7 +1104,9 @@ $('export').onclick=async()=>{
   catch(error){showError(error);}
   finally{button.disabled=false;button.textContent=label;}
 };
-$('setup').onclick = () => $('dialog').showModal(); $('close').onclick = () => $('dialog').close();
+// One dialog explains both ways in: this computer (proxy and certificate) and a phone on the same Wi-Fi.
+function showSetupTab(name) { for (const [key, tab] of [['computer', 'setup-computer'], ['phone', 'phone']]) { const on = key === name; $(tab).classList.toggle('active', on); $(tab).setAttribute('aria-selected', String(on)); $('panel-' + key).hidden = !on; } if (!$('dialog').open) $('dialog').showModal(); }
+$('setup').onclick = () => showSetupTab('computer'); $('setup-computer').onclick = () => showSetupTab('computer'); $('close').onclick = () => $('dialog').close();
 $('browser').onclick=async()=>{try{await window.librium.openBrowser();toast(t('https.browserStarted'));}catch(error){showError(error);}};
 $('ca-trust').hidden = !window.librium?.installCertificate || !['darwin', 'win32'].includes(platform);
 $('ca-trust').onclick = async () => { const button = $('ca-trust'), label = button.textContent; button.disabled = true; button.textContent = t('https.installing'); try { await window.librium.installCertificate(); toast(t('https.installed')); } catch (error) { showError(error); } finally { button.disabled = false; button.textContent = label; } };
@@ -1124,6 +1144,8 @@ function updateSuggest(){
   result.items.forEach((item,index)=>{
     if(index===recent.length)list.append(el('div',t(result.kind==='field'?'suggest.fields':'suggest.values'),'suggest-head'));
     const row=el('div','','suggest-item');row.id='suggest-'+index;row.setAttribute('role','option');row.append(el('b',item.label),el('span',item.hint));
+    // A field shows one example and what it finds, so its meaning reads at a glance.
+    if(item.example){row.classList.add('field');row.title=item.detail;row.append(el('code',item.example),el('span','→ '+item.finds,'suggest-finds'));}
     row.onmousedown=event=>{event.preventDefault();acceptSuggest(index);};row.onmouseenter=()=>highlightSuggest(index);
     list.append(row);
   });
@@ -1154,7 +1176,7 @@ $('filter').addEventListener('keydown',event=>{
   if(event.key==='Escape'){if(open){event.preventDefault();hideSuggest();return;}if($('filter').value){event.preventDefault();$('filter').value='';renderFilterChips();filtersChanged();}}
 });
 $('find').addEventListener('keydown',event=>{if(event.key==='Escape'&&$('find').value){event.preventDefault();$('find').value='';renderDetail();}});
-document.addEventListener('keydown',event=>{if(!shortcut(event)||event.altKey)return;const key=event.key.toLowerCase();if(key==='k'){event.preventDefault();$('filter').focus();$('filter').select();}else if(key==='f'){event.preventDefault();$('find').focus();$('find').select();}else if(key==='i'){event.preventDefault();$('intercept').click();}else if(key==='n'){if($('compose').hidden)return;event.preventDefault();openComposeEditor();}else if(key==='m'&&event.shiftKey){if(!detail||detail.summary.status==null||detail.summary.status===101)return;event.preventDefault();openMockEditor(detail.summary).catch(showError);}else if(key==='d'){event.preventDefault();if(detail)markSelected({starred:!detail.summary.starred});}});
+document.addEventListener('keydown',event=>{if(!shortcut(event)||event.altKey)return;const key=event.key.toLowerCase();if(key==='k'){event.preventDefault();$('filter').focus();$('filter').select();}else if(key==='f'){event.preventDefault();$('find').focus();$('find').select();}else if(key==='i'){event.preventDefault();$('intercept').click();}else if(key==='n'){if($('compose').hidden)return;event.preventDefault();$('compose').click();}else if(key==='m'&&event.shiftKey){if(!detail||detail.summary.status==null||detail.summary.status===101)return;event.preventDefault();openMockEditor(detail.summary).catch(showError);}else if(key==='d'){event.preventDefault();if(detail)markSelected({starred:!detail.summary.starred});}});
 // The split between the history and the inspector survives a restart.
 const divider=$('divider');
 function setSplit(percent,remember){if(!Number.isFinite(percent))return;const value=Math.max(30,Math.min(60,percent));document.documentElement.style.setProperty('--history',value+'%');if(remember)try{localStorage.setItem('librium-split',String(value));}catch{}}
@@ -1175,6 +1197,50 @@ document.querySelectorAll('[data-sort]').forEach(button=>button.onclick=()=>{con
 $('lang').onclick=async()=>{const next=LibriumI18n.lang==='ru'?'en':'ru';try{localStorage.setItem('librium-lang',next);}catch{}try{await window.librium?.setLanguage?.(next);}catch{}if(window.librium?.reload)window.librium.reload().catch(()=>location.reload());else location.reload();};
 Promise.resolve(window.librium?.setLanguage?.(LibriumI18n.lang)).catch(()=>{});
 renderDetail();loadInfo().catch(showError);initSessions().then(refresh).catch(showError);
+
+// Command menu (Ctrl/⌘ ⇧ P): every toolbar action by name, plus the filter sessions. A command stands for a
+// button that already exists, so what is hidden or disabled there (browser mode, nothing selected) is absent here.
+const mod=platform==='darwin'?'⌘':'Ctrl';
+function paletteCommands(){
+  const press=id=>()=>$(id).click();
+  const list=[
+    ['cmd.record','record',''],['cmd.pause','pause',''],['cmd.clear','clear',''],['cmd.intercept','intercept',`${mod} I`],['cmd.compose','compose',`${mod} N`],
+    ['cmd.history','view-history',''],['cmd.client','view-client',''],['cmd.follow','follow',''],['cmd.newest','page-live',''],['cmd.stats','stats-open',''],['cmd.export','export',''],['cmd.import','import',''],['cmd.rules','filters-open',''],
+    ['cmd.sessionNew','session-new',''],['cmd.sessionRename','session-rename',''],['cmd.sessionDelete','session-delete',''],
+    ['cmd.settings','settings-open',''],['cmd.setup','setup',''],['cmd.phone','phone',''],['cmd.help','help-open','?'],['cmd.lang','lang',''],
+  ].filter(([,id])=>!$(id).hidden&&!$(id).disabled).map(([key,id,keys])=>({label:t(key),keys,run:press(id)}));
+  list.splice(5,0,{label:t('cmd.search'),keys:`${mod} K`,run:()=>{$('filter').focus();$('filter').select();}});
+  if(selected!==null)list.push({label:t('cmd.find'),keys:`${mod} F`,run:()=>{$('find').focus();$('find').select();}},{label:t('cmd.closeInspector'),keys:'Esc',run:closeInspector});
+  if(!$('filter-chips').hidden)list.push({label:t('cmd.reset'),keys:'',run:resetFilters});
+  for(const session of sessionState?.sessions||[])if(session.id!==sessionState.activeId)list.push({label:t('cmd.sessionSwitch',{name:session.name}),keys:'',run:()=>{$('filter-session').value=session.id;$('filter-session').onchange();}});
+  return list;
+}
+let paletteItems=[],paletteActive=0;
+function renderPalette(){
+  const words=$('palette-input').value.toLowerCase().split(/\s+/).filter(Boolean);
+  paletteItems=paletteCommands().filter(command=>words.every(word=>command.label.toLowerCase().includes(word)));
+  paletteActive=Math.min(paletteActive,Math.max(0,paletteItems.length-1));
+  const list=$('palette-list');list.replaceChildren();
+  if(!paletteItems.length){list.append(el('div',t('palette.none'),'palette-none'));$('palette-input').removeAttribute('aria-activedescendant');return;}
+  paletteItems.forEach((command,index)=>{
+    const row=el('div',undefined,'palette-item'+(index===paletteActive?' active':''));row.id='palette-'+index;row.setAttribute('role','option');row.setAttribute('aria-selected',String(index===paletteActive));
+    row.append(el('span',command.label));if(command.keys)row.append(el('kbd',command.keys));
+    row.onmousemove=()=>{if(paletteActive!==index){paletteActive=index;renderPalette();}};row.onclick=()=>runPalette(index);
+    list.append(row);
+  });
+  $('palette-input').setAttribute('aria-activedescendant','palette-'+paletteActive);list.children[paletteActive].scrollIntoView?.({block:'nearest'});
+}
+function openPalette(){if($('palette').open)return;$('palette-input').value='';paletteActive=0;$('palette').showModal();renderPalette();$('palette-input').focus();}
+function runPalette(index){const command=paletteItems[index];if(!command)return;$('palette').close();command.run();}
+$('palette-open').onclick=openPalette;
+$('palette-input').oninput=()=>{paletteActive=0;renderPalette();};
+$('palette-input').onkeydown=event=>{
+  if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const n=paletteItems.length;if(n){paletteActive=((paletteActive+(event.key==='ArrowDown'?1:-1))%n+n)%n;renderPalette();}}
+  else if(event.key==='Enter'){event.preventDefault();runPalette(paletteActive);}
+};
+// A click on the backdrop closes the menu, like a click outside any other menu.
+$('palette').onclick=event=>{if(event.target===$('palette'))$('palette').close();};
+document.addEventListener('keydown',event=>{if(shortcut(event)&&event.shiftKey&&!event.altKey&&event.key.toLowerCase()==='p'){event.preventDefault();openPalette();}});
 
 // Dropdown menus (⋯) close after a choice, on a click elsewhere and on Escape.
 document.addEventListener('click',event=>{document.querySelectorAll('details.dropdown[open]').forEach(menu=>{if(!menu.contains(event.target)||event.target.closest('.menu button'))menu.removeAttribute('open');});});

@@ -33,7 +33,7 @@ window.eval("var token='__TOKEN__';");
 window.eval(readFileSync('ui/i18n.js','utf8'));
 window.eval(readFileSync('ui/filters.js','utf8'));
 window.eval(readFileSync('ui/params.js','utf8'));
-window.eval(readFileSync('ui/app.js','utf8'));
+window.eval(readFileSync('ui/app.js','utf8')+'\n'+readFileSync('ui/client.js','utf8'));
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
   for(let i=0;i<5;i++)await flush();
@@ -93,7 +93,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   empty.window.setTimeout=()=>0;empty.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   empty.window.eval("var token='__TOKEN__';");for(const file of ['ui/i18n.js','ui/filters.js','ui/params.js','ui/app.js'])empty.window.eval(readFileSync(file,'utf8'));
   for(let i=0;i<5;i++)await flush();
-  assert.equal(empty.window.document.getElementById('empty').hidden,false);assert.deepEqual([...empty.window.document.querySelectorAll('.empty-actions button')].map(b=>b.textContent),['Set up HTTPS']);
+  assert.equal(empty.window.document.getElementById('empty').hidden,false);assert.deepEqual([...empty.window.document.querySelectorAll('.empty-actions button')].map(b=>b.textContent),['How to connect']);
   empty.window.document.querySelector('.empty-actions button').click();assert.equal(empty.window.document.getElementById('dialog').open,true,'the setup button opens the HTTPS dialog');
   empty.window.close();
   console.log('Browser smoke OK: a failing history store is reported instead of a green indicator');

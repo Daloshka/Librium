@@ -40,7 +40,7 @@ app.on('browser-window-created',(_e,window)=>{
       await js(()=>{document.querySelector('.table-scroll').scrollTop=0;});
       for(let i=0;i<3;i++)await viaProxy(`${base}/anchor-top/${i}`);
       await sleep(2500);
-      const topState=await js(()=>({scrollTop:document.querySelector('.table-scroll').scrollTop,first:document.querySelector('#rows tr[data-id]').dataset.id,firstUrl:document.querySelector('#rows tr[data-id] td:nth-child(4)').title}));
+      const topState=await js(()=>({scrollTop:document.querySelector('.table-scroll').scrollTop,first:document.querySelector('#rows tr[data-id]').dataset.id,firstUrl:document.querySelector('#rows tr[data-id] td.url').title}));
       assert.equal(topState.scrollTop,0);
       assert.match(topState.firstUrl,/anchor-top\/2/);
       console.log('Anchor check OK:',{anchored:before.id,scrollBefore:before.scrollTop,scrollAfter:state.scrollTop,rows:state.rows,newestVisible:topState.firstUrl});

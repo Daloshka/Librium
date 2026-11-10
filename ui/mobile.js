@@ -21,8 +21,7 @@ function mobileFirewallHint(proxyPort=Number(proxyAddress.split(':')[1])||8080,c
   if(windows)$('mobile-firewall-hint').textContent=t('phone.firewallWindows',{proxyPort,certificatePort});
 }
 mobileFirewallHint();
-$('phone').onclick=async()=>{$('mobile-dialog').showModal();await refreshMobile();};
-$('mobile-close').onclick=()=>$('mobile-dialog').close();
+$('phone').onclick=async()=>{showSetupTab('phone');await refreshMobile();};
 $('mobile-refresh').onclick=refreshMobile;
 $('mobile-toggle').onclick=async()=>{
   $('mobile-toggle').disabled=true;

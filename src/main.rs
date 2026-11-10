@@ -438,6 +438,10 @@ fn router(app: App) -> Router {
             asset("text/css; charset=utf-8", include_str!("../ui/style.css")),
         )
         .route("/app.js", asset(SCRIPT, include_str!("../ui/app.js")))
+        .route(
+            "/client.js",
+            asset(SCRIPT, include_str!("../ui/client.js")),
+        )
         .route("/i18n.js", asset(SCRIPT, include_str!("../ui/i18n.js")))
         .route(
             "/filters.js",

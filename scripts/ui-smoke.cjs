@@ -37,7 +37,7 @@ window.eval(readFileSync('ui/i18n.js','utf8'));
 window.eval(readFileSync('ui/filters.js','utf8'));
 window.eval(readFileSync('ui/suggest.js','utf8'));window.eval(readFileSync('ui/curl.js','utf8'));
 window.eval(readFileSync('ui/params.js','utf8'));
-window.eval(readFileSync('ui/app.js','utf8'));
+window.eval(readFileSync('ui/app.js','utf8')+'\n'+readFileSync('ui/client.js','utf8'));
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
   await flush();
@@ -65,7 +65,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   window.document.querySelector('#record').click();await flush();await flush();assert.equal(recordingState,true);assert.equal(window.document.querySelector('#record').textContent,'● Recording');
   // The help dialog lists the keys and every search field; ? opens it unless something is being typed.
   window.document.querySelector('#help-open').click();await flush();
-  assert.equal(window.document.querySelector('#help-dialog').open,true);assert.equal(window.document.querySelectorAll('#help-keys tr').length,11);
+  assert.equal(window.document.querySelector('#help-dialog').open,true);assert.equal(window.document.querySelectorAll('#help-keys tr').length,12);
   assert.deepEqual([...window.document.querySelectorAll('#help-syntax th')].map(e=>e.textContent).slice(0,3),['host:','path:','url:']);assert.equal(window.document.querySelectorAll('#help-syntax tr').length,16);
   window.document.querySelector('#help-close').click();assert.equal(window.document.querySelector('#help-dialog').open,false);
   window.document.body.focus();window.document.dispatchEvent(new window.KeyboardEvent('keydown',{key:'?',bubbles:true,cancelable:true}));await flush();
@@ -109,29 +109,41 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
     assert.equal(parse('wget https://x.test'),null);assert.equal(parse('curl -sS'),null);
     assert.equal(parse('curl -sX DELETE https://h.test/x').method,'DELETE','bundled short flags with a trailing value option');
   }
-  // A request from scratch uses the same editor and is sent with id 0.
-  window.document.querySelector('#compose').click();await flush();
-  assert.equal(window.document.querySelector('#replay-dialog').open,true);assert.equal(window.document.querySelector('#replay-title').textContent,'New request');assert.equal(window.document.querySelector('#replay-url').value,'https://');
-  const paste=new window.Event('paste',{bubbles:true,cancelable:true});Object.defineProperty(paste,'clipboardData',{value:{getData:()=>"curl -X PATCH 'https://api.example.test/v1/paste' -H 'X-From: curl' -d '{\"p\":1}'"}});
-  window.document.querySelector('#replay-url').dispatchEvent(paste);
-  assert.equal(paste.defaultPrevented,true);assert.equal(window.document.querySelector('#replay-method').value,'PATCH');assert.equal(window.document.querySelector('#replay-url').value,'https://api.example.test/v1/paste');
-  assert.equal(window.document.querySelector('#replay-headers').value,'X-From: curl\nContent-Type: application/x-www-form-urlencoded');assert.equal(window.document.querySelector('#replay-body').value,'{"p":1}');assert.match(window.document.querySelector('#replay-note').textContent,/2 headers/);
-  window.document.querySelector('#replay-headers').value='accept: */*';
-  window.document.querySelector('#replay-method').value='PUT';window.document.querySelector('#replay-url').value='https://api.example.test/v1/compose';window.document.querySelector('#replay-body').value='{"new":1}';
-  // The answer shows up as a new exchange; the UI selects it once it appears.
-  fixtures.push({id:21,method:'PUT',url:'https://api.example.test/v1/compose',status:200,size:2,elapsed_ms:5,time:Date.UTC(2026,8,8,12,30,0),version:'HTTP/2',content_type:'application/json'});
-  window.document.querySelector('#replay-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await flush();await flush();await flush();await flush();
-  assert.deepEqual(JSON.parse(JSON.stringify(replayed)),{id:0,edit:{method:'PUT',url:'https://api.example.test/v1/compose',headers:[['accept','*/*']],body:'{"new":1}'}});
-  assert.equal(window.document.querySelector('#replay-dialog').open,false);
-  assert.match(window.document.querySelector('.selection-url').textContent,/v1\/compose/,'the composed exchange is selected');
-  // Reopening "+ Request" brings the last composed request back.
-  window.document.querySelector('#compose').click();await flush();
-  assert.equal(window.document.querySelector('#replay-url').value,'https://api.example.test/v1/compose');assert.equal(window.document.querySelector('#replay-method').value,'PUT');assert.equal(window.document.querySelector('#replay-body').value,'{"new":1}');assert.equal(window.document.querySelector('#replay-headers').value,'accept: */*');
-  window.document.querySelector('#replay-cancel').click();window.localStorage.removeItem('librium-last-compose');
-  fixtures.pop();window.document.querySelector('#rows tr[data-id="19"]').click();await flush();await flush();assert.match(window.document.querySelector('.selection-url').textContent,/example\.test\/<script>/,'back on the first row for the checks below');
+  // "+ Request" opens the Requests workspace with a blank request; a pasted cURL command fills it.
+  {
+    const q=id=>window.document.getElementById(id),input=node=>node.dispatchEvent(new window.Event('input',{bubbles:true}));
+    const pairs=id=>[...q(id).querySelectorAll('.kv-row')].map(row=>[row.querySelector('.kv-name').value,row.querySelector('.kv-value').value]).filter(([name])=>name);
+    window.localStorage.removeItem('librium-client-v1');
+    q('compose').click();await flush();
+    assert.equal(q('client').hidden,false);assert.equal(window.document.body.classList.contains('view-client'),true);assert.equal(q('client-url').value,'https://');
+    const paste=new window.Event('paste',{bubbles:true,cancelable:true});Object.defineProperty(paste,'clipboardData',{value:{getData:()=>"curl -X PATCH 'https://api.example.test/v1/paste?a=1' -H 'X-From: curl' -d '{\"p\":1}'"}});
+    q('client-url').dispatchEvent(paste);
+    assert.equal(paste.defaultPrevented,true);assert.equal(q('client-method').value,'PATCH');assert.equal(q('client-url').value,'https://api.example.test/v1/paste?a=1');
+    assert.deepEqual(pairs('client-panel-headers'),[['X-From','curl'],['Content-Type','application/x-www-form-urlencoded']]);assert.deepEqual(pairs('client-panel-params'),[['a','1']],'the query shows as parameters');
+    assert.equal(q('client-body').value,'{"p":1}');assert.match(q('client-error').textContent,/2 headers/);
+    // A parameter typed into the table goes into the address; one switched off leaves it.
+    const blank=q('client-panel-params').querySelectorAll('.kv-row')[1];blank.querySelector('.kv-name').value='b';blank.querySelector('.kv-value').value='x y';input(blank.querySelector('.kv-name'));
+    assert.equal(q('client-url').value,'https://api.example.test/v1/paste?a=1&b=x%20y');assert.equal(q('client-panel-params').querySelectorAll('.kv-row').length,3,'an empty row waits at the end');
+    const off=q('client-panel-params').querySelector('.kv-row input[type=checkbox]');off.checked=false;off.dispatchEvent(new window.Event('change'));
+    assert.equal(q('client-url').value,'https://api.example.test/v1/paste?b=x%20y');
+    q('client-method').value='PUT';q('client-method').dispatchEvent(new window.Event('change'));q('client-url').value='https://api.example.test/v1/compose';input(q('client-url'));q('client-body').value='{"new":1}';input(q('client-body'));
+    window.document.querySelector('#client-body-type [data-type="json"]').click();
+    // The answer is read back from the exchange the proxy recorded.
+    fixtures.push({id:21,method:'PUT',url:'https://api.example.test/v1/compose',status:200,size:2,elapsed_ms:5,time:Date.UTC(2026,8,8,12,30,0),version:'HTTP/2',content_type:'application/json'});
+    q('client-form').dispatchEvent(new window.Event('submit',{cancelable:true}));for(let i=0;i<8;i++)await flush();
+    assert.deepEqual(JSON.parse(JSON.stringify(replayed)),{id:0,edit:{method:'PUT',url:'https://api.example.test/v1/compose',headers:[['X-From','curl'],['Content-Type','application/x-www-form-urlencoded']],body:'{"new":1}'}});
+    assert.match(q('client-status').textContent,/^200/,'the response status is shown: '+q('client-status').textContent+' / '+q('client-content').textContent);assert.equal(q('client-open').hidden,false);
+    // The request is kept: it is in the list and comes back from storage.
+    assert.match(q('client-list').textContent,/PUT.*api\.example\.test\/v1\/compose/);
+    await new Promise(resolve=>setTimeout(resolve,350));assert.equal(JSON.parse(window.localStorage.getItem('librium-client-v1')).requests[0].url,'https://api.example.test/v1/compose');
+    q('client-open').click();await flush();await flush();
+    assert.equal(q('client').hidden,true);assert.match(window.document.querySelector('.selection-url').textContent,/v1\/compose/,'the sent exchange opens in the history');
+    window.localStorage.removeItem('librium-client-v1');
+  }
+  fixtures.pop();window.document.querySelector('#filter').dispatchEvent(new window.Event('input'));await flush();await flush();window.document.querySelector('#rows tr[data-id="19"]').click();await flush();await flush();assert.match(window.document.querySelector('.selection-url').textContent,/example\.test\/<script>/,'back on the first row for the checks below');
   window.document.dispatchEvent(new window.KeyboardEvent('keydown',{key:'n',ctrlKey:true,bubbles:true,cancelable:true}));await flush();
-  assert.equal(window.document.querySelector('#replay-dialog').open,true,'Ctrl N opens a new request');assert.equal(window.document.querySelector('#replay-title').textContent,'New request');
-  window.document.querySelector('#replay-cancel').click();assert.equal(window.document.querySelector('#replay-dialog').open,false);
+  assert.equal(window.document.querySelector('#client').hidden,false,'Ctrl N opens a new request in Requests');assert.equal(window.document.querySelector('#client-url').value,'https://');
+  window.document.querySelector('#view-history').click();assert.equal(window.document.querySelector('#client').hidden,true);assert.equal(window.document.body.classList.contains('view-client'),false);window.localStorage.removeItem('librium-client-v1');
   window.document.querySelector('.replay-edit').click();await flush();window.document.querySelector('#replay-body').value='via shortcut';
   window.HTMLFormElement.prototype.requestSubmit=function(){this.dispatchEvent(new window.Event('submit',{cancelable:true}));};
   window.document.querySelector('#replay-body').dispatchEvent(new window.KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,cancelable:true}));await flush();await flush();
@@ -200,7 +212,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
     window.document.querySelector('#intercept').click();await flush();await flush();assert.equal(interceptState.enabled,false);
     target.dispatchEvent(new window.MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:40,clientY:40}));await flush();assert.equal(menu.hidden,false);
   }
-  assert.deepEqual([...menu.querySelectorAll('button')].map(b=>b.textContent),['Star ★','Only this host','Hide this host','Only this path','Intercept this host','Stop recording this host','Only DELETE','Only status 404','Copy URL','Compare with #19','Copy as fetch','Copy as Python','Copy as cURL','Mock this response','Resend','Delete from the history']);
+  assert.deepEqual([...menu.querySelectorAll('button')].map(b=>b.textContent),['Star ★','Only this host','Hide this host','Only this path','Intercept this host','Stop recording this host','Only DELETE','Only status 404','Copy URL','Compare with #19','Copy as fetch','Copy as Python','Copy as cURL','Mock this response','Open in Requests','Resend','Delete from the history']);
   {
     // "Mock this response" opens an editor filled from the exchange; saving appends to the core's mocks.
     const pick=label=>[...menu.querySelectorAll('button')].find(b=>b.textContent===label);
@@ -234,10 +246,10 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
     const pick=label=>[...menu.querySelectorAll('button')].find(b=>b.textContent===label);
     pick('Star ★').click();await flush();await flush();await flush();
     assert.deepEqual(marks.at(-1),[7,{starred:true}]);
-    assert.ok(window.document.querySelector('[data-id="7"] .star'),'the row shows the star');assert.equal(window.document.querySelector('.star-toggle').textContent,'★');
+    assert.ok(window.document.querySelector('[data-id="7"] .star'),'the row shows the star');assert.equal(window.document.querySelector('.star-toggle').textContent,'★');assert.equal(window.document.querySelector('.star-toggle').getAttribute('aria-pressed'),'true','the header star is pressed');
     assert.equal(window.document.querySelector('#note').hidden,false);
     window.document.querySelector('#note').value='hello note';window.document.querySelector('#note').dispatchEvent(new window.Event('change'));await flush();await flush();
-    assert.deepEqual(marks.at(-1),[7,{note:'hello note'}]);assert.match(window.document.querySelector('[data-id="7"]').querySelector('td:nth-child(4)').title,/hello note/);
+    assert.deepEqual(marks.at(-1),[7,{note:'hello note'}]);assert.match(window.document.querySelector('[data-id="7"]').querySelector('td.url').title,/hello note/);
     assert.equal((await typed('is:starred')).length,1,'is:starred keeps the starred row');await typed('');
     window.document.querySelector('[data-preset="starred"]').click();await flush();assert.equal(window.document.querySelector('#filter').value,'is:starred','the preset writes the condition');await typed('');
     window.document.querySelector('.star-toggle').click();await flush();await flush();await flush();

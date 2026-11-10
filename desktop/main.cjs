@@ -330,7 +330,7 @@ else {
       // The window comes back where it was left, as long as that place is still on a screen.
       const boundsFile = join(app.getPath('userData'), 'window.json');
       const remembered = (() => { try { const b = JSON.parse(fs.readFileSync(boundsFile, 'utf8')); const {screen} = require('electron'); const area = screen.getDisplayMatching(b).workArea; if ([b.x, b.y, b.width, b.height].every(Number.isFinite) && b.width >= 1040 && b.height >= 680 && b.x < area.x + area.width - 100 && b.y < area.y + area.height - 100 && b.x + b.width > area.x + 100) return b; } catch {} return {}; })();
-      window = new BrowserWindow({ show: !headless, width: 1540, height: 980, ...remembered, minWidth: 1040, minHeight: 680, title: 'Librium', icon: join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'), backgroundColor: '#101216', autoHideMenuBar: true,
+      window = new BrowserWindow({ show: !headless, width: 1540, height: 980, ...remembered, minWidth: 1040, minHeight: 680, title: 'Librium', icon: join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'), backgroundColor: '#1e1e1e', autoHideMenuBar: true,
         webPreferences: { preload: join(__dirname,'preload.cjs'), additionalArguments: ['--librium-lang='+i18n.lang], nodeIntegration: false, contextIsolation: true, sandbox: true, spellcheck: false } });
       let boundsTimer;
       const rememberBounds = () => { clearTimeout(boundsTimer); boundsTimer = setTimeout(() => { try { if (!window.isMinimized() && !window.isFullScreen()) fs.writeFileSync(boundsFile, JSON.stringify(window.getNormalBounds())); } catch (error) { logError('Window bounds: ' + error.message); } }, 400); };

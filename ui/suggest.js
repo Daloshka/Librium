@@ -77,7 +77,8 @@
       if(/[^a-z-]/i.test(token.text))return null;
       const list=FIELDS.filter(field=>field.startsWith(name)&&!(negate&&['since','until'].includes(field)));
       if(!list.length)return null;
-      return {start:token.start,end:caret,kind:'field',items:list.map(field=>({insert:negate+field+':',label:negate+field+':',hint:t('hint.'+field),keepOpen:true}))};
+      // Each field comes with its name, one example and what that example finds; the full syntax stays in the tooltip.
+      return {start:token.start,end:caret,kind:'field',items:list.map(field=>{const [example,finds]=t('example.'+field).split('|');return {insert:negate+field+':',label:negate+field+':',hint:t('what.'+field),example:negate+example,finds:(negate?t('suggest.except'):'')+finds,detail:t('hint.'+field),keepOpen:true};})};
     }
     if(!FIELDS.includes(name))return null;
     const others=String(text||'').slice(0,token.start)+' '+String(text||'').slice(caret);

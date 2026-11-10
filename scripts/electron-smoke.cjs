@@ -17,9 +17,9 @@ app.on('browser-window-created', (_event, window) => {
       const result = await window.webContents.executeJavaScript(`(async()=>{
         const rows = await window.librium.request('traffic');
         let blocked=false;try {await window.librium.request('../');} catch {blocked=true;}
-        return {bridge:!!window.librium, count:rows.length, blocked, panes:document.querySelectorAll('.pane').length, title:document.title, requestColor:getComputedStyle(document.querySelector('.pane-title')).backgroundImage};
+        return {bridge:!!window.librium, count:rows.length, blocked, panes:document.querySelectorAll('.pane').length, title:document.title, paneTitle:getComputedStyle(document.querySelector('.pane-title')).display,inspector:getComputedStyle(document.querySelector('.inspector')).display};
       })()`);
-      assert.equal(result.bridge,true);assert.equal(result.blocked,true);assert.equal(result.panes,2);assert.equal(result.title,'Librium');assert.match(result.requestColor,/gradient/);
+      assert.equal(result.bridge,true);assert.equal(result.blocked,true);assert.equal(result.panes,2);assert.equal(result.title,'Librium');assert.equal(result.paneTitle,'flex','the stylesheet is applied');assert.equal(result.inspector,'none','the list has the whole window until a request is picked');
       if(existsSync('target/preview-test-id.txt')) {
         const imageId=Number(readFileSync('target/preview-test-id.txt','utf8'));
         assert.ok(Number.isSafeInteger(imageId));
@@ -138,8 +138,8 @@ app.on('browser-window-created', (_event, window) => {
       // The copies go away again, so the history is the same size after every run.
       const removed=await window.webContents.executeJavaScript(`window.librium.request('traffic-page?q='+encodeURIComponent(JSON.stringify({rules:[{field:'id',op:'gte',value:String(${newestBefore}+1)}]})),'DELETE')`);
       assert.equal(removed.deleted,imported,'the imported copies are deleted again');
-      console.log('Electron smoke OK: sandboxed preload, real Rust IPC, route validation, two panes, colored theme');
-      report('PASS: sandboxed preload, real Rust IPC, route validation, two panes, colored theme');
+      console.log('Electron smoke OK: sandboxed preload, real Rust IPC, route validation, two panes, stylesheet applied');
+      report('PASS: sandboxed preload, real Rust IPC, route validation, two panes, stylesheet applied');
       clearTimeout(timeout);app.quit();
     } catch(error) {report('FAIL: '+error.stack);clearTimeout(timeout);app.exit(1);}
   });
