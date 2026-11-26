@@ -8,7 +8,16 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {'.gitignore', '.gitattributes', 'README.md', 'README.ru.md', 'SECURITY.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE', 'Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json', 'run.ps1', 'run.sh'}
 DIRECTORIES = {'src', 'desktop', 'ui', 'scripts', 'docs', '.github'}
 TEXT_SUFFIXES = {'.rs', '.cjs', '.js', '.html', '.css', '.ps1', '.sh', '.py', '.md', '.toml', '.lock', '.json', '.yml', '.yaml'}
-BINARY_FILES = {'desktop/assets/icon.png', 'desktop/assets/icon.ico', 'desktop/assets/icon.icns', 'docs/images/http-history.webp', 'docs/images/media-preview.webp', 'docs/images/social-preview.png', 'docs/images/demo.webp'}
+BINARY_FILES = {
+    'desktop/assets/icon.png',
+    'desktop/assets/icon.ico',
+    'desktop/assets/icon.icns',
+    'docs/images/history-demo.gif',
+    'docs/images/http-history.webp',
+    'docs/images/media-preview.webp',
+    'docs/images/requests-demo.gif',
+    'docs/images/social-preview.png',
+}
 RULES = {
     'private key': r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
     'access token': r'(?:ghp_|github_pat_|sk-proj-)[A-Za-z0-9_-]{16,}',

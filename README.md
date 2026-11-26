@@ -17,15 +17,19 @@ Explore APIs, debug client apps, check headers and study network behavior. The c
 
 [Why Librium](#why-librium) · [Screenshots](#screenshots) · [Install](#install) · [HTTPS setup](#https-setup) · [Documentation](#documentation)
 
-![Librium demo](docs/images/demo.webp)
+![Librium History demo showing a POST exchange, JSON bodies, and the 4xx filter](docs/images/history-demo.gif)
 
 ## Screenshots
 
-Request history and workspace:
+The History tab shows the request list and the selected exchange side by side.
 
 ![HTTP request history](docs/images/http-history.webp)
 
-Image preview in a response (synthetic demo traffic):
+The Requests tab sends a saved request to a local demo API and opens the captured exchange in History.
+
+![Librium Requests demo showing an API call, its JSON response, and the resulting history entry](docs/images/requests-demo.gif)
+
+The response inspector previews images from the captured traffic.
 
 ![Image preview in a response](docs/images/media-preview.webp)
 
@@ -36,14 +40,14 @@ Image preview in a response (synthetic demo traffic):
 - **HTTP/1.1 and HTTP/2** through an explicit proxy; HTTPS with a local CA. One button adds it to the trust store of your user account on macOS and Windows; the system asks for confirmation.
 - **History in SQLite**, kept on disk and never trimmed by request count. Sort the whole history by ID, method, host and path, status, size or duration, page through it, or switch on “Follow” to open each new request as it arrives.
 - **Request and response side by side**: headers, query and form parameters, cookies, text, a collapsible JSON tree, hex, search inside bodies and copy URL.
-- **Search, quick filters and a filter builder** for HTTP and WebSocket, saved as named sessions with autosave. Noisy hosts (`*.google-analytics.com`, `telemetry.*`) can be kept out of the history altogether, from Settings (the gear in the rail) or a row's right-click menu. The search box takes conditions next to plain words: `host:api status:4xx method:post type:json size:>1mb -path:/static`.
+- **Search, quick filters and a filter builder** for HTTP and WebSocket, saved as named sessions with autosave. Exclude noisy hosts (`*.google-analytics.com`, `telemetry.*`) from history in Settings or from a row's right-click menu. The search box takes conditions alongside plain words, such as `host:api status:4xx method:post type:json size:>1mb -path:/static`.
 - **Media, not just text.** PNG, SVG and other images with 1:1 zoom and drag, an audio player, and saving captured media to a file.
 - **WebSocket in both directions**: text and binary frames with timing and per-connection history.
 - **HAR in and out.** Export the requests matching the current filters, or the whole history, with decompressed bodies and WebSocket frames (opens in Chrome DevTools and other HAR viewers); import a HAR from a browser, a colleague or another tool into the history (or drop the file onto the window), WebSocket frames included. Credentials (Authorization, Cookie, Set-Cookie, API keys) are masked by default; the switch is in the Filters dialog. The request pane also copies any request as a curl command.
 - **Summary of the current search.** “Σ Summary of the selection” in the toolbar’s ⋯ menu shows totals, error share, mocked answers, bytes, median / 95th percentile / max latency, status classes, methods and the busiest hosts; a click on a host keeps only it in the search.
 - **Copy as code.** A row's menu copies the request as cURL, as a browser `fetch()` call or as Python `requests`.
 - **Stars and notes.** Star an exchange from the inspector or the row menu and write a note next to it; `is:starred` and `note:` find them again.
-- **New request.** “+ New request” opens the editor empty: pick a method, type the URL, headers and body (or paste a cURL command into the address field and let it fill everything), and send it through the proxy; the editor remembers the last request you composed; the exchange lands in the history like any other.
+- **Requests workspace.** Compose and save named requests with query parameters, headers and a JSON, text or form body. Paste a cURL command into the address field to fill the editor, or choose **Open in Requests** from a History row. Sending through the proxy shows the response in Requests and records the exchange in History.
 - **Recording toggle.** “● Recording” in the toolbar stops writing the history while traffic keeps flowing and the rules keep applying; nothing is held either. On again after a restart.
 - **Intercept.** Hold requests to chosen hosts, methods and paths before they leave the proxy: look at them (several held ones line up as tabs), edit the method, URL, headers and body, then forward or drop. Responses too, when asked: status, headers and body (shown decoded; an edited body goes out uncompressed), and a held response can be saved as a mock. Off by default; anything held goes on unchanged after ten minutes without a decision.
 - **Mocks.** “Mock this response” in a row's menu turns a recorded exchange into a canned answer: the proxy serves it for matching host, path and method (a path pattern with `?` also matches the query) without asking the origin, and records the exchange as usual (with an `x-librium-mock` header and a “mock” tag in the list). Edit, switch off or delete mocks in Settings.
@@ -52,7 +56,8 @@ Image preview in a response (synthetic demo traffic):
 - **Rules as a file.** Settings can export the ignored hosts, header rewrites, delays and mocks as one JSON file and import such a file back (it replaces the lists it contains; dropping the file onto the window works too), so a team shares the same mocks.
 - **Active rules pill.** While mocks, delays or header rewrites are on, the status line at the bottom shows an amber pill with their counts; click it to open Settings, so a forgotten rule never answers in silence.
 - **Resend a request, as is or edited.** One button sends a captured request again through the proxy; another opens it for editing first: method, address, headers and body. The replay lands in the history next to the original.
-- **Phone capture over your home Wi-Fi**, opt-in: LAN access is off by default and the core listens on loopback only.
+- **Connect** brings computer and phone setup into one dialog. Phone capture over Wi-Fi is opt-in.
+- **Command menu.** Press `Ctrl Shift P` or `⌘ ⇧ P` to find actions by name.
 - **Works behind a VPN.** One button opens a separate Chrome profile that goes through Librium even when a tunnel swallows the system proxy.
 - **Interface in English and Russian**, switched in the app with one click.
 
@@ -149,14 +154,14 @@ Rust core only: `./run.sh` (macOS and Linux), `./run.ps1` (Windows) or `cargo ru
 ## Quick start
 
 1. Start Librium and wait for the proxy to connect.
-2. Point your browser or app at the HTTP proxy `127.0.0.1:8080`. For HTTPS, trust the local certificate as described below.
+2. Open **Connect → This computer** for browser and certificate setup. The default HTTP proxy address is `127.0.0.1:8080`.
 3. Open a page or send a request — it shows up in the history.
 4. Select a row: the request is on the left, the response on the right. Switch between headers, body, pretty and hex; media can be previewed, played and downloaded.
 5. Use search and the filters by traffic type, method and status. Save a set as its own filter session to come back to it after a restart.
 
 New requests appear at the top by default. Click a column header to change the sorting.
 
-The interface speaks English and Russian: the **EN / RU** button at the bottom of the left rail switches the language and reloads the window. Librium picks your system language on the first run.
+The **EN / RU** button in the top toolbar switches the language and reloads the window. Librium picks your system language on the first run.
 
 ### Search syntax
 
@@ -187,17 +192,18 @@ Suggestions appear under the box as you type: the fields first, then values seen
 
 | Keys | Action |
 | --- | --- |
+| `Ctrl Shift P` (`⌘ ⇧ P` on macOS) | Open the command menu |
 | `Ctrl K` (`⌘ K` on macOS) | Focus the history search |
 | `Ctrl F` (`⌘ F`) | Focus the search inside the request and response |
 | `Ctrl I` (`⌘ I`) | Toggle intercept |
 | `Ctrl N` (`⌘ N`) | New request |
 | `Ctrl Shift M` (`⌘ ⇧ M`) | Mock the selected response |
 | `Ctrl ]` / `Ctrl [` (`⌘ ]` / `⌘ [`) | In the intercept panel: next / previous held request |
-| `?` | Keys and search syntax cheat sheet (also the `?` button in the rail) |
+| `?` | Open the keyboard and search reference |
 | `Ctrl D` (`⌘ D`) | Star or unstar the selected request |
 | `Esc` | Clear the focused search box |
 | `↑` `↓` `Enter` | Move along the history and open a request |
-| `Ctrl Enter` (`⌘ Enter`) | Send from the “Edit and resend” dialog |
+| `Ctrl Enter` (`⌘ Enter`) | Send from Requests or the “Edit and resend” dialog |
 
 ## HTTPS setup
 
@@ -249,7 +255,7 @@ Librium never enables the system proxy and never installs the CA for you. Switch
 
 Network Extension based VPN clients on macOS (Xray, sing-box, Amnezia, WireGuard and friends) and many Windows tunnels ignore the system proxy: while the tunnel is up, `scutil --proxy` is empty and requests bypass Librium even if a proxy is set for Wi-Fi or for the VPN service itself. Librium keeps working — its own outgoing connections go through the tunnel like any other app's.
 
-The fix is to give the proxy to the browser instead of to the system. The **“Open Chrome through the proxy”** button in the “HTTPS setup” dialog launches a separate Chrome, Chromium, Edge or Brave profile with a `--proxy-server` flag that does not depend on system settings or on the VPN. The profile lives in Electron's data directory and does not touch your main browser. The same by hand:
+In **Connect → This computer**, choose **Open Chrome through the proxy** to launch a separate Chrome, Chromium, Edge or Brave profile with the `--proxy-server` flag. The profile lives in Electron's data directory. You can also launch it from your terminal.
 
 ```sh
 open -na "Google Chrome" --args --proxy-server=127.0.0.1:8080 --user-data-dir="$HOME/Library/Application Support/librium-desktop/chrome-profile"
@@ -265,7 +271,7 @@ In-depth walkthroughs: [proxy setup on Windows](docs/proxy-setup.md) and [proxy 
 
 ## Phone capture
 
-Connect the phone and the computer to the same home network. In the app press **“Connect phone”**, pick the local network interface and follow the steps. LAN access is opt-in; by default the core is reachable on loopback only.
+Connect the phone and computer to the same Wi-Fi. Open **Connect → Phone**, pick the local network interface and enable LAN access.
 
 In the phone's Wi-Fi settings enter the computer address shown by Librium and the proxy port `8080`. For HTTPS, install the local CA on the phone and enable full trust for it if the system asks. On Windows, allow incoming connections for Librium in the firewall for private networks. On macOS, if the firewall is on, allow incoming connections for Librium (System Settings → Network → Firewall → Options…); the system usually offers this the first time LAN access is enabled.
 
@@ -346,7 +352,7 @@ python3 scripts/export-source.py --check
 python3 scripts/export-source.py
 ```
 
-The export creates a fresh `.publish/Librium` folder with allowlisted sources and the two prepared documentation screenshots only. It never copies `.git`, local databases, certificates, traffic, logs, builds or arbitrary screenshots. The destination has to be new or empty. If your working Git history contains personal data, publish a fresh history from a clean export rather than the original repository.
+The export creates a fresh `.publish/Librium` folder with allowlisted sources and documentation media. It never copies `.git`, local databases, certificates, traffic, logs, builds or arbitrary screenshots. The destination has to be new or empty. If your working Git history contains personal data, publish a fresh history from a clean export rather than the original repository.
 
 ## Documentation
 

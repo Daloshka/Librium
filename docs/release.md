@@ -31,14 +31,15 @@ electron-builder кладёт всё в `dist/vX.Y.Z/`. Имя Windows-файл�
 
 ## 2. Поднять версию
 
-Версия живёт в трёх местах, все три обязательны:
+Обнови версию в следующих файлах.
 
 - `Cargo.toml` → `version`. Отсюда её берёт ядро (`env!("CARGO_PKG_VERSION")`)
-  и отдаёт в API, а интерфейс показывает её в левой колонке.
+  и отдаёт в API, а интерфейс показывает её в строке состояния.
 - `package.json` → `version`. Это версия Electron-приложения и часть имён
   артефактов.
 - `package.json` → `build.directories.output` → `dist/vX.Y.Z`. Каталог сборки;
   на него настроены пути выгрузки в workflow (`dist/v*/…`).
+- `package-lock.json` → `version` и `packages[""].version`.
 
 Дальше обновить `Cargo.lock` и прогнать проверки:
 
