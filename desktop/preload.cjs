@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('librium', {
   saveFilterSessions: value => ipcRenderer.invoke('filter-sessions-save',value),
   openUrl: url => ipcRenderer.invoke('open-url', url),
   openBrowser: () => ipcRenderer.invoke('open-browser'),
+  ...(process.platform === 'darwin' ? {
+    systemProxyStatus: () => ipcRenderer.invoke('system-proxy-status'),
+    setSystemProxy: enabled => ipcRenderer.invoke('system-proxy-enabled', enabled),
+    setProxyRoutes: routes => ipcRenderer.invoke('system-proxy-routes', routes),
+    openNetworkSettings: () => ipcRenderer.invoke('open-network-settings'),
+    onSystemProxyIssue: listener => { ipcRenderer.on('system-proxy-changed', (_event, issue) => listener(issue)); },
+  } : {}),
   geoIp: host => ipcRenderer.invoke('geo-ip', host),
   mobileStatus: () => ipcRenderer.invoke('mobile-status'),
   mobileEnable: address => ipcRenderer.invoke('mobile-enable', address),

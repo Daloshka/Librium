@@ -1,6 +1,6 @@
 {
   "name": "librium-desktop",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "HTTP and HTTPS traffic inspector",
   "author": "Librium",
   "license": "MIT",
@@ -12,7 +12,7 @@
     "dist": "npm run build:core && electron-builder --publish never",
     "dist:win": "npm run build:core && electron-builder --win --publish never",
     "dist:mac": "npm run build:core && electron-builder --mac --publish never",
-    "test:ui": "node scripts/ui-smoke.cjs && node scripts/browser-smoke.cjs && node scripts/har-smoke.cjs && node scripts/ca-install-smoke.cjs",
+    "test:ui": "node scripts/ui-smoke.cjs && node scripts/browser-smoke.cjs && node scripts/har-smoke.cjs && node scripts/ca-install-smoke.cjs && node --test scripts/macos-system-proxy-smoke.cjs",
     "test:electron": "electron scripts/electron-smoke.cjs"
   },
   "devDependencies": {
@@ -26,7 +26,7 @@
     "appId": "local.librium.desktop",
     "productName": "Librium",
     "directories": {
-      "output": "dist/v0.7.0"
+      "output": "dist/v0.8.0"
     },
     "files": [
       "desktop/**/*",

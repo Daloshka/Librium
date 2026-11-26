@@ -101,6 +101,9 @@ ipcMain.handle('api', async (event, path, method, body) => {
     || (method === 'POST' && /^intercept\/\d+$/.test(path) && typeof body === 'string' && body.length <= 16 * 1024 * 1024)
     || (method === 'PATCH' && /^traffic\/\d+$/.test(path) && typeof body === 'string' && body.length <= 64 * 1024);
   if (!allowed) throw Error(t('main.badOperation'));
+  if (macSystemProxy?.inUse && method === 'PUT' && path === 'intercept' && JSON.parse(body)?.enabled) {
+    throw Error(t('systemProxy.stopBeforeIntercept'));
+  }
   const payload = body === undefined ? null : body;
   try { const data = await request('/api/' + path, method, true, payload); return data ? JSON.parse(data) : null; }
   catch (error) {
@@ -293,6 +296,51 @@ function openBrowser() {
   return true;
 }
 ipcMain.handle('open-browser', event => {validate(event);return openBrowser();});
+const macSystemProxy = process.platform === 'darwin' ? new (require('./macos-system-proxy.cjs').MacSystemProxy)({
+  coreStatus: async () => {
+    const [info, intercept] = await Promise.all([request('/api/info'), request('/api/intercept')]);
+    return { port: JSON.parse(info).proxy_port, intercept: JSON.parse(intercept).enabled };
+  },
+  certificate: () => request('/api/ca'),
+  resolveProxy: async (urls, pacUrl) => {
+    // The system setting is verified separately. Use a dedicated resolver so Chromium's
+    // cached system settings in the main window cannot delay applying a new PAC file.
+    const verifier = session.fromPartition('librium-pac-check', { cache: false });
+    await verifier.setProxy({ mode: 'pac_script', pacScript: pacUrl });
+    return Promise.all(urls.map(url => verifier.resolveProxy(url)));
+  },
+  prompt: () => t('systemProxy.prompt'),
+  routesFile: join(app.getPath('userData'), 'proxy-routes.json'),
+  onError: issue => {
+    if (window && !window.isDestroyed()) window.webContents.send('system-proxy-changed', issue);
+  },
+}) : null;
+if (macSystemProxy) {
+  ipcMain.handle('system-proxy-status', event => { validate(event); return macSystemProxy.status(); });
+  ipcMain.handle('system-proxy-routes', async (event, routes) => {
+    validate(event);
+    if (quitting) throw Error(t('proxyRoutes.applyFailed'));
+    try { await macSystemProxy.setRoutes(routes); }
+    catch (error) { throw Error(t(error.message.startsWith('proxyRoutes.') || error.message === 'systemProxy.busy' ? error.message : 'proxyRoutes.applyFailed')); }
+    return macSystemProxy.status();
+  });
+  ipcMain.handle('open-network-settings', async event => {
+    validate(event);
+    const error = await shell.openPath('/System/Applications/System Settings.app');
+    if (error) throw Error(t('vpnMenu.settingsFailed'));
+  });
+  ipcMain.handle('system-proxy-enabled', async (event, enabled) => {
+    validate(event);
+    if (typeof enabled !== 'boolean') throw Error(t('main.badOperation'));
+    if (enabled && !quitting) {
+      await ensureCore();
+      if (!quitting) await macSystemProxy.enable();
+    } else {
+      await macSystemProxy.disable();
+    }
+    return macSystemProxy.status();
+  });
+}
 let geoIp=null;
 ipcMain.handle('geo-ip', (event, host) => {validate(event);geoIp ||= new (require('./geoip.cjs').GeoIp)({file: join(app.getPath('userData'), 'ipinfo-cache.json')});return geoIp.info(String(host || '').slice(0, 255));});
 ipcMain.handle('mobile-status', event => {validate(event);return mobile.status();});
@@ -302,12 +350,14 @@ ipcMain.handle('reload-window',event=>{validate(event);window.webContents.reload
 ipcMain.handle('report-error',(event,message)=>{validate(event);if(typeof message==='string')logError(message);});
 ipcMain.handle('mobile-enable', (event,address) => {validate(event);const action=mobileOperation.then(()=>mobile.enable(address));mobileOperation=action.catch(()=>{});return action;});
 ipcMain.handle('mobile-disable', event => {validate(event);const action=mobileOperation.then(()=>mobile.disable());mobileOperation=action.catch(()=>{});return action;});
-// The certificate is written under the app's own data directory and handed to the platform tool.
 ipcMain.handle('install-ca', async event => {
   validate(event);
+  const certificate = await request('/api/ca');
+  const { install } = require('./ca-install.cjs');
+  if (process.platform === 'darwin') return install({ certificate });
   const file = join(app.getPath('userData'), 'librium-ca.crt');
-  await writeFile(file, await request('/api/ca'));
-  return require('./ca-install.cjs').install({file});
+  await writeFile(file, certificate);
+  return install({ file });
 });
 ipcMain.handle('save-ca', async event => {
   validate(event);
@@ -336,7 +386,10 @@ else {
       const rememberBounds = () => { clearTimeout(boundsTimer); boundsTimer = setTimeout(() => { try { if (!window.isMinimized() && !window.isFullScreen()) fs.writeFileSync(boundsFile, JSON.stringify(window.getNormalBounds())); } catch (error) { logError('Window bounds: ' + error.message); } }, 400); };
       window.on('resize', rememberBounds); window.on('move', rememberBounds);
       window.webContents.setWindowOpenHandler(() => ({action:'deny'}));
-      window.webContents.on('render-process-gone',(_event,details)=>logError('Renderer stopped: '+JSON.stringify(details)));
+      window.webContents.on('render-process-gone', (_event, details) => {
+        logError('Renderer stopped: ' + JSON.stringify(details));
+        macSystemProxy?.disable().catch(error => logError('System proxy cleanup: ' + error.message));
+      });
       window.webContents.on('console-message',(_event,level,message)=>{if(level>=2)logError('Renderer: '+message);});
       window.webContents.on('will-navigate', event => event.preventDefault());
       await window.loadFile(join(__dirname, '../ui/index.html'));
@@ -358,5 +411,5 @@ let quitting=false;
 app.on('before-quit', event => {
   if(quitting)return;
   event.preventDefault();quitting=true;
-  Promise.allSettled([mobile.disable(),request('/api/storage-flush','POST')]).then(()=>stopCore()).then(()=>app.quit());
+  Promise.allSettled([macSystemProxy?.disable(), mobile.disable(), request('/api/storage-flush','POST')]).then(()=>stopCore()).then(()=>app.quit());
 });

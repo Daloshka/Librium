@@ -37,7 +37,7 @@ The response inspector previews images from the captured traffic.
 
 - **Free and open source.** MIT license, no account, no subscription, no cloud sync and no telemetry — the captured traffic stays on your machine.
 - **The same tool on Windows and macOS.** One interface, one set of shortcuts, one history format.
-- **HTTP/1.1 and HTTP/2** through an explicit proxy; HTTPS with a local CA. One button adds it to the trust store of your user account on macOS and Windows; the system asks for confirmation.
+- **HTTP/1.1 and HTTP/2** through an explicit proxy with a local HTTPS CA. The app can add it to the System keychain on macOS or to the current user's Windows trust store after confirmation.
 - **History in SQLite**, kept on disk and never trimmed by request count. Sort the whole history by ID, method, host and path, status, size or duration, page through it, or switch on “Follow” to open each new request as it arrives.
 - **Request and response side by side**: headers, query and form parameters, cookies, text, a collapsible JSON tree, hex, search inside bodies and copy URL.
 - **Search, quick filters and a filter builder** for HTTP and WebSocket, saved as named sessions with autosave. Exclude noisy hosts (`*.google-analytics.com`, `telemetry.*`) from history in Settings or from a row's right-click menu. The search box takes conditions alongside plain words, such as `host:api status:4xx method:post type:json size:>1mb -path:/static`.
@@ -229,10 +229,10 @@ In a macOS terminal:
 curl --proxy http://127.0.0.1:8080 --cacert "$HOME/Library/Application Support/Librium/ca.crt" https://example.com
 ```
 
-On macOS the CA is trusted through Keychain Access: open `ca.crt`, find **Librium Local CA** and set Trust to “Always Trust”. The same from a terminal:
+On macOS, choose **Connect → This computer → Trust the CA in macOS** and approve the administrator prompt. This adds Librium's CA to the System keychain for HTTPS. To do this from a terminal, run the following command.
 
 ```sh
-security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$HOME/Library/Application Support/Librium/ca.crt"
+sudo security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain "$HOME/Library/Application Support/Librium/ca.crt"
 ```
 
 The macOS system proxy is set per network service: System Settings → Network → the service → Details… → Proxies → “Web proxy (HTTP)” and “Secure web proxy (HTTPS)” with `127.0.0.1` and `8080`. The same from a terminal (replace `Wi-Fi` with your service name from `networksetup -listallnetworkservices`):
@@ -249,11 +249,11 @@ networksetup -setwebproxystate Wi-Fi off
 networksetup -setsecurewebproxystate Wi-Fi off
 ```
 
-Librium never enables the system proxy and never installs the CA for you. Switch the proxy off in the client or in the system after a session, and never share the private key `ca.key`.
+When you configure a proxy manually, turn it off in the client or in System Settings after the session. Keep the private key `ca.key` on your computer.
 
 ### Using a VPN
 
-Network Extension based VPN clients on macOS (Xray, sing-box, Amnezia, WireGuard and friends) and many Windows tunnels ignore the system proxy: while the tunnel is up, `scutil --proxy` is empty and requests bypass Librium even if a proxy is set for Wi-Fi or for the VPN service itself. Librium keeps working — its own outgoing connections go through the tunnel like any other app's.
+On macOS, open **Connect → This computer**, trust the CA, and check **Capture HTTP and HTTPS**. Keep **Intercept** off for this mode. Use **Routes** to choose which sites go through Librium. Outgoing connections follow the current macOS route. Turning off capture or quitting Librium removes the temporary proxy setting. The same dialog offers other ways to connect.
 
 In **Connect → This computer**, choose **Open Chrome through the proxy** to launch a separate Chrome, Chromium, Edge or Brave profile with the `--proxy-server` flag. The profile lives in Electron's data directory. You can also launch it from your terminal.
 

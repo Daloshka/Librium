@@ -102,6 +102,8 @@ function renderConnectionInfo(){
   for(const id of ['browser','browser-hint'])$(id).hidden=!window.librium?.openBrowser;
   for(const id of ['proxy-address','dialog-proxy','empty-proxy']){const node=$(id);if(node)node.textContent=proxyAddress;}
   $('ca-install').textContent=t(platform==='win32'?'https.caWindows':platform==='darwin'?'https.caMac':'https.caOther');
+  $('ca-trust').textContent=t(platform==='darwin'?'https.installCaMac':'https.installCa');
+  $('ca-trust').title=t(platform==='darwin'?'https.installCaMacTitle':'https.installCaTitle');
   $('ca-check-label').textContent=t(platform==='win32'?'https.checkPowerShell':'https.checkTerminal');
   $('ca-check').textContent=platform==='win32'?`curl.exe --ssl-revoke-best-effort --proxy http://${proxyAddress} --cacert "${caPath()}" https://example.com`:`curl --proxy http://${proxyAddress} --cacert "${caPath()}" https://example.com`;
   window.mobileFirewallHint?.();
@@ -1105,11 +1107,135 @@ $('export').onclick=async()=>{
   finally{button.disabled=false;button.textContent=label;}
 };
 // One dialog explains both ways in: this computer (proxy and certificate) and a phone on the same Wi-Fi.
-function showSetupTab(name) { for (const [key, tab] of [['computer', 'setup-computer'], ['phone', 'phone']]) { const on = key === name; $(tab).classList.toggle('active', on); $(tab).setAttribute('aria-selected', String(on)); $('panel-' + key).hidden = !on; } if (!$('dialog').open) $('dialog').showModal(); }
+function showSetupTab(name) { for (const [key, tab] of [['computer', 'setup-computer'], ['phone', 'phone']]) { const on = key === name; $(tab).classList.toggle('active', on); $(tab).setAttribute('aria-selected', String(on)); $('panel-' + key).hidden = !on; } if (!$('dialog').open) $('dialog').showModal(); if (name === 'computer') refreshSystemProxy(); }
 $('setup').onclick = () => showSetupTab('computer'); $('setup-computer').onclick = () => showSetupTab('computer'); $('close').onclick = () => $('dialog').close();
+const systemProxy = $('system-proxy');
+const systemProxyStatus = $('system-proxy-status');
+const systemProxyIndicator = $('system-proxy-indicator');
+const vpnMenu = $('vpn-menu');
+const vpnMenuButton = $('vpn-menu-button');
+const routeSites = $('proxy-route-sites');
+const routeDomains = $('proxy-route-domains');
+const routeSave = $('proxy-routes-save');
+const routeResult = $('proxy-routes-result');
+let systemProxyChanging = false;
+let routeDraftDirty = false;
+function routeMode() { return vpnMenu.querySelector('input[name="proxy-routes-mode"]:checked').value; }
+function updateRouteFields() { routeSites.hidden = routeMode() === 'all'; }
+function renderProxyRoutes(routes) {
+  if (routeDraftDirty || !routes) return;
+  for (const radio of vpnMenu.querySelectorAll('input[name="proxy-routes-mode"]')) radio.checked = radio.value === routes.mode;
+  routeDomains.value = routes.domains.join('\n');
+  updateRouteFields();
+}
+function renderVpnNetwork({ profiles = [], defaults = {}, tunnels = [] }) {
+  $('vpn-menu-profiles').replaceChildren(...profiles.map(profile => el('li', `${profile.name} · ${t('vpnMenu.' + profile.status)}`)));
+  const routes = [['IPv4', defaults.ipv4], ['IPv6', defaults.ipv6]].filter(([, name]) => name).map(([family, name]) => `${family} ${name}`);
+  $('vpn-menu-routes').textContent = routes.length ? t('vpnMenu.routes', { routes: routes.join(' · ') }) : t('vpnMenu.noRoutes');
+  $('vpn-menu-tunnels').textContent = tunnels.length ? t('vpnMenu.tunnels', { interfaces: tunnels.join(', ') }) : '';
+}
+function renderSystemProxy({ vpn, enabled, busy, issue, routes, ...network }) {
+  systemProxy.checked = enabled;
+  systemProxy.disabled = busy || systemProxyChanging;
+  systemProxyIndicator.hidden = !enabled;
+  const status = issue || (busy || systemProxyChanging ? 'systemProxy.busy' : enabled ? 'systemProxy.active' : 'proxyRoutes.off');
+  const vpnStatus = vpn ? 'systemProxy.vpn' : network.tunnels?.length ? 'systemProxy.tunnelOnly' : vpn === false ? 'systemProxy.noVpn' : 'systemProxy.vpnUnknown';
+  const activeVpn = (network.profiles || []).filter(profile => profile.status === 'connected').map(profile => profile.name);
+  systemProxyStatus.textContent = [t(status), t(vpnStatus), activeVpn.join(', '), enabled && routes && t('proxyRoutes.' + routes.mode)].filter(Boolean).join(' · ');
+  renderVpnNetwork(network);
+  renderProxyRoutes(routes);
+}
+function refreshSystemProxy() {
+  if (!window.librium?.systemProxyStatus || systemProxyChanging) return;
+  window.librium.systemProxyStatus().then(status => {
+    if (!systemProxyChanging) renderSystemProxy(status);
+  }).catch(showError);
+}
+if (window.librium?.systemProxyStatus) {
+  $('system-proxy-options').hidden = false;
+  $('vpn-details').hidden = false;
+  $('setup-alternatives').open = false;
+  systemProxyIndicator.onclick = () => showSetupTab('computer');
+  vpnMenuButton.onclick = () => {
+    vpnMenu.hidden = !vpnMenu.hidden;
+    vpnMenuButton.setAttribute('aria-expanded', String(!vpnMenu.hidden));
+    if (!vpnMenu.hidden) refreshSystemProxy();
+  };
+  vpnMenu.oninput = () => {
+    routeDraftDirty = true;
+    routeSave.disabled = false;
+    routeResult.textContent = '';
+    updateRouteFields();
+  };
+  vpnMenu.onsubmit = async event => {
+    event.preventDefault();
+    if (routeSave.disabled) return;
+    const mode = routeMode();
+    const domains = mode === 'all' ? [] : routeDomains.value.split(/[\s,]+/).filter(Boolean);
+    $('proxy-routes-fields').disabled = true;
+    routeSave.disabled = true;
+    routeResult.textContent = t('proxyRoutes.saving');
+    try {
+      const status = await window.librium.setProxyRoutes({ mode, domains });
+      routeDraftDirty = false;
+      renderSystemProxy(status);
+      routeResult.textContent = t(status.enabled ? 'proxyRoutes.saved' : 'proxyRoutes.savedDisabled');
+    } catch (error) {
+      routeResult.textContent = error.message.replace(/^Error invoking remote method 'system-proxy-routes': (?:Error: )?/, '');
+      routeSave.disabled = false;
+      refreshSystemProxy();
+    } finally {
+      $('proxy-routes-fields').disabled = false;
+    }
+  };
+  $('vpn-menu-copy').onclick = async () => {
+    try { await copyText(proxyAddress); $('vpn-menu-action-status').textContent = t('pane.copied'); }
+    catch (error) { $('vpn-menu-action-status').textContent = error.message; }
+  };
+  $('vpn-menu-settings').onclick = async () => {
+    try { await window.librium.openNetworkSettings(); }
+    catch { $('vpn-menu-action-status').textContent = t('vpnMenu.settingsFailed'); }
+  };
+  refreshSystemProxy();
+  window.addEventListener('focus', () => { if ($('dialog').open && !vpnMenu.hidden) refreshSystemProxy(); });
+  systemProxy.onchange = async () => {
+    systemProxyChanging = true;
+    systemProxy.disabled = true;
+    systemProxyStatus.textContent = t('systemProxy.busy');
+    try {
+      const status = await window.librium.setSystemProxy(systemProxy.checked);
+      systemProxyChanging = false;
+      renderSystemProxy(status);
+    } catch (error) {
+      systemProxyChanging = false;
+      systemProxy.disabled = false;
+      systemProxy.checked = false;
+      systemProxyStatus.textContent = error.message;
+      refreshSystemProxy();
+    }
+  };
+  window.librium.onSystemProxyIssue(issue => {
+    if (!$('dialog').open) toast(t(issue));
+    refreshSystemProxy();
+  });
+}
 $('browser').onclick=async()=>{try{await window.librium.openBrowser();toast(t('https.browserStarted'));}catch(error){showError(error);}};
 $('ca-trust').hidden = !window.librium?.installCertificate || !['darwin', 'win32'].includes(platform);
-$('ca-trust').onclick = async () => { const button = $('ca-trust'), label = button.textContent; button.disabled = true; button.textContent = t('https.installing'); try { await window.librium.installCertificate(); toast(t('https.installed')); } catch (error) { showError(error); } finally { button.disabled = false; button.textContent = label; } };
+$('ca-trust').onclick = async () => {
+  const button = $('ca-trust'), label = button.textContent, status = $('ca-trust-status');
+  button.disabled = true;
+  button.textContent = t('https.installing');
+  status.textContent = '';
+  try {
+    await window.librium.installCertificate();
+    status.textContent = t(platform === 'darwin' ? 'https.installedMac' : 'https.installed');
+  } catch (error) {
+    status.textContent = error.message.replace(/^Error invoking remote method 'install-ca': (?:Error: )?/, '');
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+};
 $('ca').onclick = async () => { try { if(window.librium) { if(await window.librium.saveCertificate()) toast(t('https.caSaved')); } else { const res = await fetch('/api/ca',{headers:{'x-librium-token':token}}); if(!res.ok) throw Error(`API: ${res.status}`); const url=URL.createObjectURL(await res.blob()); const a=el('a'); a.href=url; a.download='librium-ca.crt'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); } } catch(error) { showError(error); } };
 // Escape empties the search box under the cursor; the dialogs already close on it by themselves.
 // Suggestions under the search box: fields while a token is typed, values once the field has its colon.
